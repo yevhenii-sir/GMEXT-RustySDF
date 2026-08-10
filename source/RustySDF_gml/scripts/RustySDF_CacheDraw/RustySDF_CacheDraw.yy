@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"RustySDF_CacheDraw",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"RustySDF_CacheDraw",
+  "parent":{
+    "name":"Drawing",
+    "path":"folders/Extensions/RustySDF/Scripts/Drawing.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

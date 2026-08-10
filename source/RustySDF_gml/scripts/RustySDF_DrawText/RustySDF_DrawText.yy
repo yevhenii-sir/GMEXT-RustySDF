@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"RustySDF_DrawText",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"RustySDF_DrawText",
+  "parent":{
+    "name":"Drawing",
+    "path":"folders/Extensions/RustySDF/Scripts/Drawing.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

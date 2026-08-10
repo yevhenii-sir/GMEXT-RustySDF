@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"RustySDF_AsyncManager",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"RustySDF_AsyncManager",
+  "parent":{
+    "name":"Scripts",
+    "path":"folders/Extensions/RustySDF/Scripts.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

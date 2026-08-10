@@ -1,0 +1,12 @@
+{
+  "$GMShader":"",
+  "%Name":"shd_sdf",
+  "name":"shd_sdf",
+  "parent":{
+    "name":"Shaders",
+    "path":"folders/Extensions/RustySDF/Shaders.yy",
+  },
+  "resourceType":"GMShader",
+  "resourceVersion":"2.0",
+  "type":1,
+}

@@ -1,0 +1,1 @@
+global.rusty_sdf_async_manager.update();
