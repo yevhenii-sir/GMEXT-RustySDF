@@ -1,5 +1,3 @@
-//#extension GL_OES_standard_derivatives : enable
-
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -22,13 +20,18 @@ uniform vec4 u_glow_color;
 #define texture2D texture
 #endif
 
+#if !defined(GL_ES) || (__VERSION__ >= 300)
+#define SDF_SPREAD(d) max(fwidth(d) * 0.75, 0.001)
+#else
+#define SDF_SPREAD(d) 0.02
+#endif
+
 void main()
 {
     vec4 sdf_sample = texture2D(gm_BaseTexture, v_vTexcoord);
 
     float dist = sdf_sample.r;
-    float spread = fwidth(dist);
-    spread = max(spread * 0.75, 0.001);
+    float spread = SDF_SPREAD(dist);
     
     float core_alpha = smoothstep(u_boldness - spread, u_boldness + spread, dist) * u_core_color.a;
     

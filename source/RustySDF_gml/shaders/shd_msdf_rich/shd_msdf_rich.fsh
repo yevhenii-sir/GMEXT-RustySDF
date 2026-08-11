@@ -15,6 +15,12 @@ uniform int u_render_pass;
 #define texture2D texture
 #endif
 
+#if !defined(GL_ES) || (__VERSION__ >= 300)
+#define SDF_SPREAD(d) max(fwidth(d) * 0.75, 0.001)
+#else
+#define SDF_SPREAD(d) 0.02
+#endif
+
 float median(vec3 v) {
     return max(min(v.r, v.g), min(max(v.r, v.g), v.b));
 }
@@ -32,11 +38,7 @@ void main()
 
     vec4 msdf_sample = texture2D(gm_BaseTexture, v_vTexcoord);
     float dist = median(msdf_sample.rgb);
-    
-    // ВАЖНО: Для MSDF лучше использовать fwidth, если расширение включено.
-    // Если нет, оставляем как есть.
-    float spread = 0.08; 
-    spread = max(spread * 0.75, 0.001);
+    float spread = SDF_SPREAD(dist);
 
     float boldness = v_vParams.x;
     float outline_width = v_vParams.y;

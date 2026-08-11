@@ -15,9 +15,14 @@ uniform int u_render_pass; // 0 = Effects (Outline/Glow), 1 = Core Text
 #define texture2D texture
 #endif
 
+#if !defined(GL_ES) || (__VERSION__ >= 300)
+#define SDF_SPREAD(d) max(fwidth(d) * 0.75, 0.001)
+#else
+#define SDF_SPREAD(d) 0.02
+#endif
+
 void main()
 {
-    // Если это декорация (подчеркивание/зачеркивание), рисуем обычный цвет только на фазе 1
     if (v_vParams.w < 0.5) {
         if (u_render_pass == 1) {
             gl_FragColor = vec4(v_vCoreColor.rgb, v_vCoreColor.a * u_global_alpha);
@@ -29,8 +34,7 @@ void main()
 
     vec4 sdf_sample = texture2D(gm_BaseTexture, v_vTexcoord);
     float dist = sdf_sample.r;
-    float spread = 0.08; // Или fwidth(dist), если поддерживается
-    spread = max(spread * 0.75, 0.001);
+    float spread = SDF_SPREAD(dist);
 
     float boldness = v_vParams.x;
     float outline_width = v_vParams.y;
@@ -38,17 +42,14 @@ void main()
 
     if (u_render_pass == 0) 
     {
-        // === ПРОХОД 0: ЭФФЕКТЫ (Свечение и Обводка) ===
         vec4 eff_color = vec4(0.0);
         
-        // Свечение
         if (v_vGlowColor.a > 0.0 && glow_radius > 0.0) {
             float glow_alpha = smoothstep(boldness - outline_width - glow_radius, 
                                           boldness - outline_width, dist) * v_vGlowColor.a;
             eff_color = vec4(v_vGlowColor.rgb, glow_alpha);
         }
         
-        // Обводка
         if (v_vOutlineColor.a > 0.0 && outline_width > 0.0) {
             float out_a = smoothstep(boldness - outline_width - spread, 
                                      boldness - outline_width + spread, dist) * v_vOutlineColor.a;
@@ -62,7 +63,6 @@ void main()
     } 
     else 
     {
-        // === ПРОХОД 1: СЕРДЦЕВИНА ТЕКСТА ===
         float core_alpha = smoothstep(boldness - spread, boldness + spread, dist) * v_vCoreColor.a;
         vec4 core_color = vec4(v_vCoreColor.rgb, core_alpha * u_global_alpha);
         if (core_color.a <= 0.0) discard;
