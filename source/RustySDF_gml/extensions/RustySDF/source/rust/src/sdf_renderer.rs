@@ -11,7 +11,7 @@ use fdsm::render::{correct_sign_msdf, correct_sign_sdf};
 use fdsm::shape::Shape;
 use fdsm::transform::Transform;
 use fdsm_ttf_parser::load_shape_from_face;
-use fdsm_ttf_parser::ttf_parser::{Face, GlyphId};
+use fdsm_ttf_parser::ttf_parser::{Face, GlyphId, Rect};
 use image::{ImageBuffer, Luma, Rgb};
 use nalgebra::{Affine2, Similarity2, Vector2};
 
@@ -281,14 +281,8 @@ pub fn render_glyph_sdf(font_handle: Handle, glyph_id: u32, font_size: f64) -> b
 
             let upem = face.units_per_em() as f64;
             let px_scale = (font_size / upem).max(0.0001);
-            let glyph_w_px =
-                ((glyph_bbox.x_max as f64 - glyph_bbox.x_min as f64).max(1.0) * px_scale)
-                    .ceil()
-                    .max(1.0) as u32;
-            let glyph_h_px =
-                ((glyph_bbox.y_max as f64 - glyph_bbox.y_min as f64).max(1.0) * px_scale)
-                    .ceil()
-                    .max(1.0) as u32;
+            let (glyph_w_px, glyph_h_px, _, _, y_slack) =
+                glyph_tile_metrics(glyph_bbox, px_scale);
 
             let render_w = (glyph_w_px + padding.saturating_mul(2)).min(buf_w).max(1);
             let render_h = (glyph_h_px + padding.saturating_mul(2)).min(buf_h).max(1);
@@ -297,7 +291,7 @@ pub fn render_glyph_sdf(font_handle: Handle, glyph_id: u32, font_size: f64) -> b
             let transformation: Affine2<f64> = nalgebra::convert(Similarity2::new(
                 Vector2::new(
                     padding as f64 - glyph_bbox.x_min as f64 * px_scale,
-                    padding as f64 - glyph_bbox.y_min as f64 * px_scale,
+                    padding as f64 + y_slack - glyph_bbox.y_min as f64 * px_scale,
                 ),
                 0.0,
                 px_scale,
@@ -385,6 +379,17 @@ pub fn render_glyph_sdf(font_handle: Handle, glyph_id: u32, font_size: f64) -> b
     }
 }
 
+fn glyph_tile_metrics(bbox: Rect, px_scale: f64) -> (u32, u32, f64, f64, f64) {
+    let w_exact = (bbox.x_max as f64 - bbox.x_min as f64).max(1.0) * px_scale;
+    let h_exact = (bbox.y_max as f64 - bbox.y_min as f64).max(1.0) * px_scale;
+    let w = w_exact.ceil().max(1.0) as u32;
+    let h = h_exact.ceil().max(1.0) as u32;
+    let x_min = bbox.x_min as f64 * px_scale;
+    let y_max = bbox.y_max as f64 * px_scale;
+    let y_slack = h as f64 - h_exact;
+    (w, h, x_min, y_max, y_slack)
+}
+
 /// Compute exact glyph pixel bounds (width, height) and offsets for a given font size.
 /// Returns zero-size bounds for whitespace / non-outline glyphs.
 pub fn get_glyph_bounds(
@@ -411,18 +416,7 @@ pub fn get_glyph_bounds(
 
         let upem = face.units_per_em() as f64;
         let px_scale = (font_size / upem).max(0.0001);
-
-        // Cast to f64 BEFORE subtraction to prevent i16 overflow on some fonts
-        let w = ((glyph_bbox.x_max as f64 - glyph_bbox.x_min as f64).max(1.0) * px_scale)
-            .ceil()
-            .max(1.0) as u32;
-        let h = ((glyph_bbox.y_max as f64 - glyph_bbox.y_min as f64).max(1.0) * px_scale)
-            .ceil()
-            .max(1.0) as u32;
-
-        let x_min = glyph_bbox.x_min as f64 * px_scale;
-        let y_max = glyph_bbox.y_max as f64 * px_scale;
-
+        let (w, h, x_min, y_max, _) = glyph_tile_metrics(glyph_bbox, px_scale);
         (w, h, x_min, y_max)
     }) {
         Some(v) => Some(v),
