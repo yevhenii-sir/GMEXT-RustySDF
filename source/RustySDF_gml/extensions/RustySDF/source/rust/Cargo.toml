@@ -1,6 +1,6 @@
 [package]
 name = "rustysdf"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 
 [lib]
@@ -11,8 +11,9 @@ path = "src/lib.rs"
 gm_ext_wire = { path = "crates/gm_ext_wire" }
 rustybuzz = "0.20"
 unicode-bidi = "0.3"
-fdsm = "0.8"
-fdsm-ttf-parser = "0.2"
+unicode-linebreak = "0.1"
+fdsm = { path = "crates/fdsm" }
+fdsm-ttf-parser = { path = "crates/fdsm-ttf-parser" }
 image = { version = "0.25", default-features = false }
 nalgebra = { version = "0.34", default-features = false, features = ["std"] }
 

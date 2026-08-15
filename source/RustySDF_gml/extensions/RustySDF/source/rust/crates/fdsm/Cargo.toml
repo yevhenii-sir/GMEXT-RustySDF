@@ -1,0 +1,21 @@
+[package]
+name = "fdsm"
+version = "0.8.4"
+edition = "2021"
+authors = ["+merlan #flirora"]
+license = "MIT"
+repository = "https://codeberg.org/flirora/fdsm"
+keywords = ["msdf", "distance-fields"]
+categories = ["graphics"]
+description = "A pure-Rust implementation of multi-channel signed distance field generation"
+# Vendored into RustySDF with local SDF performance patches.
+
+[dependencies]
+image = { version = "0.25", default-features = false }
+nalgebra = { version = "0.34", default-features = false, features = ["std"] }
+num-traits = "0.2"
+oklab = { version = "1.0", optional = true }
+rayon = "1.10"
+
+[features]
+visualize = ["dep:oklab"]

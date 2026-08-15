@@ -1,0 +1,20 @@
+[package]
+name = "fdsm-ttf-parser"
+version = "0.2.0"
+edition = "2021"
+authors = ["+merlan #flirora"]
+license = "MIT"
+repository = "https://codeberg.org/flirora/fdsm"
+keywords = ["msdf", "distance-fields"]
+categories = ["graphics"]
+description = "Import glyphs from ttf-parser for fdsm"
+# Vendored into RustySDF alongside crates/fdsm.
+
+[dependencies]
+ttf-parser = "0.25"
+fdsm = { path = "../fdsm", version = "0.8.4" }
+image = { version = "0.25", default-features = false }
+nalgebra = { version = "0.34", default-features = false, features = ["std"] }
+
+[features]
+visualize = ["fdsm/visualize"]

@@ -56,6 +56,7 @@ pub fn load_font(data: Vec<u8>) -> Handle {
 /// Free a font and all associated data.
 pub fn free_font(handle: Handle) -> bool {
     crate::shaper::invalidate_face_cache(handle);
+    crate::sdf_renderer::invalidate_ttf_face_cache(handle);
     FONT_HANDLES
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -89,6 +90,10 @@ pub fn add_fallback(font_handle: Handle, fallback_handle: Handle) -> bool {
 
 /// Get the number of glyphs in a font.
 pub fn get_font_glyph_count(handle: Handle) -> Option<u32> {
+    // Prefer cached rustybuzz face (no re-parse).
+    if let Some(n) = crate::shaper::cached_glyph_count(handle) {
+        return Some(n);
+    }
     let fonts = FONT_HANDLES.lock().unwrap_or_else(|e| e.into_inner());
     let font = fonts.get(&handle)?;
     let face = Face::parse(&font.font_data, 0).ok()?;
@@ -105,37 +110,31 @@ pub fn get_font(handle: Handle) -> Option<Arc<FontState>> {
 }
 
 /// Resolve a character to the first available glyph in primary font + fallback chain.
-/// Returns None when no font in the chain can render the character.
+/// Uses the shared rustybuzz face cache (no `Face::parse` per character).
 pub fn resolve_char_with_fallback(font_handle: Handle, ch: char) -> Option<ResolvedGlyph> {
-    let fonts = FONT_HANDLES.lock().unwrap_or_else(|e| e.into_inner());
-
-    let primary_arc = fonts.get(&font_handle)?.clone();
-    let fallback_handles = primary_arc
-        .fallbacks
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
-
-    let mut chain = Vec::with_capacity(1 + fallback_handles.len());
-    chain.push(font_handle);
-    chain.extend(fallback_handles);
+    let chain = {
+        let fonts = FONT_HANDLES.lock().unwrap_or_else(|e| e.into_inner());
+        let primary = fonts.get(&font_handle)?;
+        let fallbacks = primary
+            .fallbacks
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let mut chain = Vec::with_capacity(1 + fallbacks.len());
+        chain.push(font_handle);
+        chain.extend(fallbacks);
+        chain
+    };
 
     for h in chain {
-        let font_arc = match fonts.get(&h) {
-            Some(v) => v,
-            None => continue,
-        };
-
-        let face = match Face::parse(&font_arc.font_data, 0) {
-            Ok(f) => f,
-            Err(_) => continue,
-        };
-
-        if let Some(glyph_id) = face.glyph_index(ch) {
-            return Some(ResolvedGlyph {
-                font_handle: h,
-                glyph_id: glyph_id.0 as u32,
-            });
+        if let Some(glyph_id) = crate::shaper::cached_glyph_index(h, ch) {
+            // Skip .notdef (0) — keep searching fallbacks.
+            if glyph_id != 0 {
+                return Some(ResolvedGlyph {
+                    font_handle: h,
+                    glyph_id,
+                });
+            }
         }
     }
 

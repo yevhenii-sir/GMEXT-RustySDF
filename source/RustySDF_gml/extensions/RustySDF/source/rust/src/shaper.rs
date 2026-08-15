@@ -1,10 +1,11 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use unicode_bidi::BidiInfo;
 
-use crate::font_manager::{get_font, resolve_char_with_fallback, Handle};
+use crate::font_manager::{get_font, Handle};
 
 static NEXT_SHAPE_HANDLE: LazyLock<Mutex<Handle>> = LazyLock::new(|| Mutex::new(1));
 
@@ -18,7 +19,7 @@ struct CachedFace {
     units_per_em: i32,
 }
 
-static FACE_CACHE: LazyLock<Mutex<HashMap<Handle, CachedFace>>> =
+static FACE_CACHE: LazyLock<Mutex<HashMap<Handle, Arc<CachedFace>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 const SHAPE_CACHE_MAX_ENTRIES: usize = 64;
@@ -28,6 +29,7 @@ const SHAPE_CACHE_MAX_GLYPHS: usize = 32_768;
 struct ShapeCacheKey {
     font_handle: Handle,
     size_bits: u64,
+    bidi_mode: u32,
     text: String,
 }
 
@@ -48,7 +50,6 @@ impl ShapeCache {
 
     fn get(&mut self, key: &ShapeCacheKey) -> Option<Arc<ShapeResult>> {
         if let Some(v) = self.map.get(key) {
-            // move to MRU
             if let Some(i) = self.order.iter().position(|k| k == key) {
                 if let Some(k) = self.order.remove(i) {
                     self.order.push_back(k);
@@ -101,6 +102,11 @@ static SHAPE_CACHE: LazyLock<Mutex<ShapeCache>> = LazyLock::new(|| Mutex::new(Sh
 // 0 = Auto (unicode-bidi), 1 = Force LTR, 2 = Force RTL
 static BIDI_MODE: AtomicU32 = AtomicU32::new(0);
 
+thread_local! {
+    /// Reused across shape calls on this worker (UnicodeBuffer <-> GlyphBuffer cycle).
+    static TLS_UNICODE_BUF: RefCell<Option<rustybuzz::UnicodeBuffer>> = const { RefCell::new(None) };
+}
+
 pub fn set_bidi_mode(mode: u32) {
     BIDI_MODE.store(mode, Ordering::SeqCst);
 }
@@ -131,12 +137,12 @@ fn alloc_shape_handle() -> Handle {
     h
 }
 
-fn with_cached_face<R>(font_handle: Handle, f: impl FnOnce(&rustybuzz::Face<'static>, i32) -> R) -> Option<R> {
-    // Fast path: already cached
+/// Fetch (or build) a cached rustybuzz face. Lock is released before return.
+fn get_cached_face(font_handle: Handle) -> Option<Arc<CachedFace>> {
     {
         let cache = FACE_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(cached) = cache.get(&font_handle) {
-            return Some(f(&cached.face, cached.units_per_em));
+            return Some(Arc::clone(cached));
         }
     }
 
@@ -146,13 +152,34 @@ fn with_cached_face<R>(font_handle: Handle, f: impl FnOnce(&rustybuzz::Face<'sta
     // SAFETY: CachedFace keeps Arc<Vec<u8>> alive for as long as Face exists in the cache.
     let face_static: rustybuzz::Face<'static> = unsafe { std::mem::transmute(face) };
 
-    let mut cache = FACE_CACHE.lock().unwrap_or_else(|e| e.into_inner());
-    let entry = cache.entry(font_handle).or_insert_with(|| CachedFace {
+    let entry = Arc::new(CachedFace {
         _data: Arc::clone(&font_arc.font_data),
         face: face_static,
         units_per_em,
     });
-    Some(f(&entry.face, entry.units_per_em))
+
+    let mut cache = FACE_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let slot = cache.entry(font_handle).or_insert_with(|| Arc::clone(&entry));
+    Some(Arc::clone(slot))
+}
+
+/// Glyph index via cached face (no per-call `Face::parse`).
+pub(crate) fn cached_glyph_index(font_handle: Handle, ch: char) -> Option<u32> {
+    let cached = get_cached_face(font_handle)?;
+    Some(cached.face.glyph_index(ch)?.0 as u32)
+}
+
+/// Horizontal advance in font units + units_per_em via cached face.
+pub(crate) fn cached_hor_advance(font_handle: Handle, glyph_id: u32) -> Option<(u16, i32)> {
+    let cached = get_cached_face(font_handle)?;
+    let gid = rustybuzz::ttf_parser::GlyphId(u16::try_from(glyph_id).ok()?);
+    let advance = cached.face.glyph_hor_advance(gid)?;
+    Some((advance, cached.units_per_em))
+}
+
+pub(crate) fn cached_glyph_count(font_handle: Handle) -> Option<u32> {
+    let cached = get_cached_face(font_handle)?;
+    Some(cached.face.number_of_glyphs() as u32)
 }
 
 /// Drop cached face + shaped runs when font is freed.
@@ -170,8 +197,7 @@ pub fn invalidate_face_cache(font_handle: Handle) {
 fn text_needs_bidi(text: &str) -> bool {
     for ch in text.chars() {
         let u = ch as u32;
-        // Rough: any RTL / complex script → full bidi. Pure Latin/Cyrillic/etc. skip.
-        if (0x0590..=0x08FF).contains(&u) // Hebrew + Arabic blocks
+        if (0x0590..=0x08FF).contains(&u)
             || (0xFB1D..=0xFDFF).contains(&u)
             || (0xFE70..=0xFEFF).contains(&u)
             || unicode_bidi::bidi_class(ch) == unicode_bidi::BidiClass::R
@@ -181,6 +207,20 @@ fn text_needs_bidi(text: &str) -> bool {
         }
     }
     false
+}
+
+fn take_unicode_buffer() -> rustybuzz::UnicodeBuffer {
+    TLS_UNICODE_BUF.with(|cell| {
+        cell.borrow_mut()
+            .take()
+            .unwrap_or_else(rustybuzz::UnicodeBuffer::new)
+    })
+}
+
+fn store_unicode_buffer(buf: rustybuzz::UnicodeBuffer) {
+    TLS_UNICODE_BUF.with(|cell| {
+        *cell.borrow_mut() = Some(buf);
+    });
 }
 
 /// Shape text and return the result directly (no handle map).
@@ -194,9 +234,11 @@ pub fn shape_text_result(font_handle: Handle, text: &str, font_size: f64) -> Arc
         });
     }
 
+    let bidi_mode = BIDI_MODE.load(Ordering::Relaxed);
     let key = ShapeCacheKey {
         font_handle,
         size_bits: font_size.to_bits(),
+        bidi_mode,
         text: text.to_string(),
     };
 
@@ -207,7 +249,7 @@ pub fn shape_text_result(font_handle: Handle, text: &str, font_size: f64) -> Arc
         }
     }
 
-    let result = Arc::new(shape_text_uncached(font_handle, text, font_size));
+    let result = Arc::new(shape_text_uncached(font_handle, text, font_size, bidi_mode));
     {
         let mut cache = SHAPE_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         cache.insert(key, Arc::clone(&result));
@@ -215,12 +257,16 @@ pub fn shape_text_result(font_handle: Handle, text: &str, font_size: f64) -> Arc
     result
 }
 
-fn shape_text_uncached(font_handle: Handle, text: &str, font_size: f64) -> ShapeResult {
+fn shape_text_uncached(
+    font_handle: Handle,
+    text: &str,
+    font_size: f64,
+    bidi_mode: u32,
+) -> ShapeResult {
     let mut glyphs = Vec::new();
     let mut total_width: f32 = 0.0;
     let mut max_height: f32 = 0.0;
 
-    let bidi_mode = BIDI_MODE.load(Ordering::SeqCst);
     let mut visual_runs_data = Vec::new();
 
     if bidi_mode == 0 {
@@ -244,166 +290,152 @@ fn shape_text_uncached(font_handle: Handle, text: &str, font_size: f64) -> Shape
     for (run, is_rtl) in visual_runs_data {
         let run_text = &text[run.clone()];
 
-        let mut font_runs = Vec::new();
+        // Split into contiguous same-font sub-runs without allocating a char vec.
+        let mut font_runs: Vec<(Handle, std::ops::Range<usize>)> = Vec::new();
         let mut current_font = font_handle;
-        let mut current_start = 0;
+        let mut current_start = 0usize;
+        let mut started = false;
 
-        let chars: Vec<(usize, char)> = run_text.char_indices().collect();
-        for (i, &(byte_idx, ch)) in chars.iter().enumerate() {
+        for (byte_idx, ch) in run_text.char_indices() {
             let mut char_font = current_font;
-
             if !ch.is_whitespace() && !ch.is_control() {
-                if let Some(resolved) = resolve_char_with_fallback(font_handle, ch) {
+                if let Some(resolved) = crate::font_manager::resolve_char_with_fallback(font_handle, ch)
+                {
                     char_font = resolved.font_handle;
                 }
             }
 
-            if i == 0 {
+            if !started {
                 current_font = char_font;
+                current_start = byte_idx;
+                started = true;
             } else if char_font != current_font {
                 font_runs.push((current_font, current_start..byte_idx));
                 current_font = char_font;
                 current_start = byte_idx;
             }
         }
-        if current_start < run_text.len() {
+        if started && current_start < run_text.len() {
             font_runs.push((current_font, current_start..run_text.len()));
         }
 
         for (run_font, byte_range) in font_runs {
             let sub_text = &run_text[byte_range.clone()];
+            let Some(cached) = get_cached_face(run_font) else {
+                continue;
+            };
 
-            let shaped = with_cached_face(run_font, |face, units_per_em| {
-                let scale = if units_per_em > 0 {
-                    font_size as f32 / units_per_em as f32
-                } else {
-                    1.0
-                };
+            let scale = if cached.units_per_em > 0 {
+                font_size as f32 / cached.units_per_em as f32
+            } else {
+                1.0
+            };
 
-                let mut is_arabic = false;
-                let mut is_hebrew = false;
-                for ch in sub_text.chars() {
-                    let u = ch as u32;
-                    if (u >= 0x0600 && u <= 0x06FF)
-                        || (u >= 0x0750 && u <= 0x077F)
-                        || (u >= 0x08A0 && u <= 0x08FF)
-                        || (u >= 0xFB50 && u <= 0xFDFF)
-                        || (u >= 0xFE70 && u <= 0xFEFF)
-                    {
-                        is_arabic = true;
-                        break;
-                    }
-                    if u >= 0x0590 && u <= 0x05FF {
-                        is_hebrew = true;
-                        break;
-                    }
+            let mut is_arabic = false;
+            let mut is_hebrew = false;
+            for ch in sub_text.chars() {
+                let u = ch as u32;
+                if (0x0600..=0x06FF).contains(&u)
+                    || (0x0750..=0x077F).contains(&u)
+                    || (0x08A0..=0x08FF).contains(&u)
+                    || (0xFB50..=0xFDFF).contains(&u)
+                    || (0xFE70..=0xFEFF).contains(&u)
+                {
+                    is_arabic = true;
+                    break;
                 }
-
-                let mut buffer = rustybuzz::UnicodeBuffer::new();
-                buffer.push_str(sub_text);
-
-                if is_rtl {
-                    buffer.set_direction(rustybuzz::Direction::RightToLeft);
-                    if is_arabic {
-                        buffer.set_script(rustybuzz::script::ARABIC);
-                        if let Ok(lang) = rustybuzz::Language::from_str("ar") {
-                            buffer.set_language(lang);
-                        }
-                    } else if is_hebrew {
-                        buffer.set_script(rustybuzz::script::HEBREW);
-                        if let Ok(lang) = rustybuzz::Language::from_str("he") {
-                            buffer.set_language(lang);
-                        }
-                    } else {
-                        buffer.guess_segment_properties();
-                    }
-                } else {
-                    buffer.set_direction(rustybuzz::Direction::LeftToRight);
-                    buffer.guess_segment_properties();
-                }
-
-                let glyph_buffer = rustybuzz::shape(face, &[], buffer);
-                let glyph_infos = glyph_buffer.glyph_infos();
-                let glyph_positions = glyph_buffer.glyph_positions();
-
-                let mut out = Vec::with_capacity(glyph_infos.len());
-                for (info, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
-                    let mut glyph_id = info.glyph_id;
-                    let mut g_font_handle = run_font;
-
-                    let cluster = (run.start + byte_range.start + info.cluster as usize) as u32;
-                    let char_code = if (cluster as usize) < text.len() {
-                        text[cluster as usize..]
-                            .chars()
-                            .next()
-                            .map(|c| c as u32)
-                            .unwrap_or(0)
-                    } else {
-                        0
-                    };
-
-                    if glyph_id == 0 {
-                        if let Some(ch) = std::char::from_u32(char_code) {
-                            if let Some(resolved) = resolve_char_with_fallback(font_handle, ch) {
-                                glyph_id = resolved.glyph_id;
-                                g_font_handle = resolved.font_handle;
-                            }
-                        }
-                    }
-
-                    let x_offset = pos.x_offset as f32 * scale;
-                    let y_offset = pos.y_offset as f32 * scale;
-                    let mut x_advance = pos.x_advance as f32 * scale;
-                    let y_advance = pos.y_advance as f32 * scale;
-
-                    if glyph_id != 0 && g_font_handle != run_font {
-                        if let Some(fallback_arc) = get_font(g_font_handle) {
-                            if let Some(ch) = std::char::from_u32(char_code) {
-                                if let Ok(fb_face) = fdsm_ttf_parser::ttf_parser::Face::parse(
-                                    &fallback_arc.font_data,
-                                    0,
-                                ) {
-                                    if let Some(g_id) = fb_face.glyph_index(ch) {
-                                        if let Some(advance) = fb_face.glyph_hor_advance(g_id) {
-                                            let upe = fb_face.units_per_em() as f32;
-                                            let fb_scale = if upe > 0.0 {
-                                                font_size as f32 / upe
-                                            } else {
-                                                1.0
-                                            };
-                                            x_advance = advance as f32 * fb_scale;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    out.push((
-                        GlyphInfo {
-                            font_handle: g_font_handle,
-                            glyph_id,
-                            x_offset,
-                            y_offset,
-                            x_advance,
-                            y_advance,
-                            cluster,
-                            char_code,
-                        },
-                        x_advance,
-                        y_advance,
-                    ));
-                }
-                out
-            });
-
-            if let Some(out) = shaped {
-                for (g, xa, ya) in out {
-                    max_height = max_height.max(ya);
-                    total_width += xa;
-                    glyphs.push(g);
+                if (0x0590..=0x05FF).contains(&u) {
+                    is_hebrew = true;
+                    break;
                 }
             }
+
+            let mut buffer = take_unicode_buffer();
+            buffer.push_str(sub_text);
+
+            if is_rtl {
+                buffer.set_direction(rustybuzz::Direction::RightToLeft);
+                if is_arabic {
+                    buffer.set_script(rustybuzz::script::ARABIC);
+                    if let Ok(lang) = rustybuzz::Language::from_str("ar") {
+                        buffer.set_language(lang);
+                    }
+                } else if is_hebrew {
+                    buffer.set_script(rustybuzz::script::HEBREW);
+                    if let Ok(lang) = rustybuzz::Language::from_str("he") {
+                        buffer.set_language(lang);
+                    }
+                } else {
+                    buffer.guess_segment_properties();
+                }
+            } else {
+                buffer.set_direction(rustybuzz::Direction::LeftToRight);
+                buffer.guess_segment_properties();
+            }
+
+            // Shape without holding FACE_CACHE lock (cached Arc keeps data alive).
+            let glyph_buffer = rustybuzz::shape(&cached.face, &[], buffer);
+            let glyph_infos = glyph_buffer.glyph_infos();
+            let glyph_positions = glyph_buffer.glyph_positions();
+
+            for (info, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
+                let mut glyph_id = info.glyph_id;
+                let mut g_font_handle = run_font;
+
+                let cluster = (run.start + byte_range.start + info.cluster as usize) as u32;
+                let char_code = if (cluster as usize) < text.len() {
+                    text[cluster as usize..]
+                        .chars()
+                        .next()
+                        .map(|c| c as u32)
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+
+                if glyph_id == 0 {
+                    if let Some(ch) = std::char::from_u32(char_code) {
+                        if let Some(resolved) =
+                            crate::font_manager::resolve_char_with_fallback(font_handle, ch)
+                        {
+                            glyph_id = resolved.glyph_id;
+                            g_font_handle = resolved.font_handle;
+                        }
+                    }
+                }
+
+                let x_offset = pos.x_offset as f32 * scale;
+                let y_offset = pos.y_offset as f32 * scale;
+                let mut x_advance = pos.x_advance as f32 * scale;
+                let y_advance = pos.y_advance as f32 * scale;
+
+                if glyph_id != 0 && g_font_handle != run_font {
+                    if let Some((advance, upe)) = cached_hor_advance(g_font_handle, glyph_id) {
+                        let fb_scale = if upe > 0 {
+                            font_size as f32 / upe as f32
+                        } else {
+                            1.0
+                        };
+                        x_advance = advance as f32 * fb_scale;
+                    }
+                }
+
+                max_height = max_height.max(y_advance);
+                total_width += x_advance;
+                glyphs.push(GlyphInfo {
+                    font_handle: g_font_handle,
+                    glyph_id,
+                    x_offset,
+                    y_offset,
+                    x_advance,
+                    y_advance,
+                    cluster,
+                    char_code,
+                });
+            }
+
+            // Recycle buffer for the next sub-run.
+            store_unicode_buffer(glyph_buffer.clear());
         }
     }
 

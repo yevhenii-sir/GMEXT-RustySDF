@@ -13,7 +13,6 @@ if (render_mode != RustySDF_GetMode()) {
 var parsed_plain_text = string_replace_all(plain_text_str, "\\n", "\n");
 var parsed_rich_text = string_replace_all(rich_text_str, "\\n", "\n");
 
-// Обновляем Plain Text
 text_obj.set_font(fonts_array[plain_font_index])
         .set_base_size(atlas_base_size)
         .set_spread(atlas_spread)
@@ -23,7 +22,6 @@ text_obj.set_font(fonts_array[plain_font_index])
         .set_align(plain_halign, plain_valign)
         .set_spacing(plain_line_height, plain_letter_spacing);
 
-// Обновляем Rich Text
 rich_text_obj.set_font(fonts_array[rich_font_index])
              .set_base_size(atlas_base_size)
              .set_spread(atlas_spread)

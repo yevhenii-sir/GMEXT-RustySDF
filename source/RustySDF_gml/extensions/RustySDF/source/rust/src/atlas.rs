@@ -24,9 +24,6 @@ pub struct AtlasEntry {
     pub v1: f32,
     pub u2: f32,
     pub v2: f32,
-    pub glyph_id: u32,
-    pub font_handle: Handle,
-    pub base_font_size: f64,
     pub x_min: f64,
     pub y_max: f64,
     pub async_pending: bool,
@@ -164,10 +161,6 @@ pub fn get_padding() -> u32 {
     with_atlas(|a| a.padding)
 }
 
-pub fn get_size() -> (u32, u32) {
-    with_atlas(|a| (a.width, a.height))
-}
-
 pub fn lookup(
     font_handle: Handle,
     glyph_id: u32,
@@ -230,12 +223,7 @@ fn pack_rect(a: &mut AtlasState, pack_w: u32, pack_h: u32) -> Option<(u32, u32, 
     Some((p, 0, placed_y))
 }
 
-fn make_empty_entry(
-    font_handle: Handle,
-    glyph_id: u32,
-    base_font_size: f64,
-    pending: bool,
-) -> AtlasEntry {
+fn make_empty_entry(pending: bool) -> AtlasEntry {
     AtlasEntry {
         page_index: 0,
         atlas_x: 0,
@@ -248,9 +236,6 @@ fn make_empty_entry(
         v1: 0.0,
         u2: 0.0,
         v2: 0.0,
-        glyph_id,
-        font_handle,
-        base_font_size,
         x_min: 0.0,
         y_max: 0.0,
         async_pending: pending,
@@ -276,7 +261,7 @@ pub fn mark_pending(
         insert_entry(
             a,
             key,
-            make_empty_entry(font_handle, glyph_id, base_font_size, true),
+            make_empty_entry(true),
         );
         true
     })
@@ -299,13 +284,13 @@ pub fn commit_glyph(
     let key = atlas_key(font_handle, glyph_id, base_font_size, spread);
     with_atlas(|a| {
         if width == 0 || height == 0 {
-            let entry = make_empty_entry(font_handle, glyph_id, base_font_size, false);
+            let entry = make_empty_entry(false);
             insert_entry(a, key, entry.clone());
             a.version = a.version.wrapping_add(1);
             return Some(entry);
         }
         if width > a.width || height > a.height {
-            let entry = make_empty_entry(font_handle, glyph_id, base_font_size, false);
+            let entry = make_empty_entry(false);
             insert_entry(a, key, entry.clone());
             a.version = a.version.wrapping_add(1);
             return Some(entry);
@@ -316,7 +301,7 @@ pub fn commit_glyph(
         let (page, px, py) = match pack_rect(a, pack_w, pack_h) {
             Some(v) => v,
             None => {
-                let entry = make_empty_entry(font_handle, glyph_id, base_font_size, false);
+                let entry = make_empty_entry(false);
                 insert_entry(a, key, entry.clone());
                 a.version = a.version.wrapping_add(1);
                 return Some(entry);
@@ -337,9 +322,6 @@ pub fn commit_glyph(
             v1: py as f32 / ah,
             u2: (px + width) as f32 / aw,
             v2: (py + height) as f32 / ah,
-            glyph_id,
-            font_handle,
-            base_font_size,
             x_min,
             y_max,
             async_pending: false,
@@ -382,7 +364,7 @@ pub fn ensure_glyph_sync(
             insert_entry(
                 a,
                 key,
-                make_empty_entry(font_handle, glyph_id, base_font_size, false),
+                make_empty_entry(false),
             );
         });
         return 0;
@@ -415,7 +397,7 @@ pub fn ensure_glyph_sync(
                 insert_entry(
                     a,
                     key,
-                    make_empty_entry(font_handle, glyph_id, base_font_size, false),
+                    make_empty_entry(false),
                 );
                 return 0;
             }
@@ -435,9 +417,6 @@ pub fn ensure_glyph_sync(
             v1: py as f32 / ah,
             u2: (px + total_w) as f32 / aw,
             v2: (py + total_h) as f32 / ah,
-            glyph_id,
-            font_handle,
-            base_font_size,
             x_min,
             y_max,
             async_pending: false,

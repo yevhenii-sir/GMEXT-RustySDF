@@ -14,6 +14,8 @@ use crate::rich_vertex::{
 use crate::sdf_renderer::get_render_mode;
 use crate::shaper::{shape_text_result, GlyphInfo};
 
+use unicode_linebreak::linebreaks;
+
 #[derive(Clone, Debug)]
 pub struct ImageInfo {
     pub width: f32,
@@ -28,15 +30,62 @@ pub(crate) struct VisualGlyph {
     glyph: GlyphInfo,
     style: Arc<RichStyle>,
     entry: Option<AtlasEntry>,
+    /// Byte offset into the paragraph break string (logical text + U+FFFC for images).
+    break_byte: u32,
+    /// UAX #14: allowed to wrap after this glyph.
+    can_break_after: bool,
     // image fields
     img_name: String,
     subimg: f32,
     scale: f32,
     tint: f32,
-    spr_w: f32,
     spr_h: f32,
     xoff: f32,
     yoff: f32,
+}
+
+/// Object Replacement Character — linebreak class for embedded images.
+const OBJ_REPLACEMENT: char = '\u{FFFC}';
+
+fn is_wrap_glue(vg: &VisualGlyph) -> bool {
+    if vg.is_img {
+        return false;
+    }
+    char::from_u32(vg.glyph.char_code).is_some_and(|c| c.is_whitespace() || c == '\u{00AD}')
+}
+
+/// Mark `can_break_after` from Unicode line break opportunities in `break_text`.
+fn apply_uax14_breaks(glyphs: &mut [VisualGlyph], break_text: &str) {
+    if glyphs.is_empty() || break_text.is_empty() {
+        return;
+    }
+    for (off, _opp) in linebreaks(break_text) {
+        // `off` is the byte index of the character after the break.
+        // End-of-text Mandatory is unused for mid-paragraph wrap.
+        if off == 0 || off >= break_text.len() {
+            continue;
+        }
+        let mut best: Option<usize> = None;
+        for (i, g) in glyphs.iter().enumerate() {
+            let b = g.break_byte as usize;
+            if b >= off {
+                continue;
+            }
+            let better = match best {
+                None => true,
+                Some(bi) => {
+                    let bb = glyphs[bi].break_byte;
+                    g.break_byte > bb || (g.break_byte == bb && i > bi)
+                }
+            };
+            if better {
+                best = Some(i);
+            }
+        }
+        if let Some(i) = best {
+            glyphs[i].can_break_after = true;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -220,6 +269,7 @@ pub fn build_rich(
         };
         us_parse += t_parse.elapsed().as_micros() as u64;
         let paragraph_v_start = visual_glyphs.len();
+        let mut break_text = String::new();
 
         for run in runs {
             match run {
@@ -241,6 +291,8 @@ pub fn build_rich(
                     } else {
                         sc_mult
                     };
+                    let break_byte = break_text.len() as u32;
+                    break_text.push(OBJ_REPLACEMENT);
                     visual_glyphs.push(VisualGlyph {
                         is_img: true,
                         glyph: GlyphInfo {
@@ -251,15 +303,16 @@ pub fn build_rich(
                             x_advance: spr_w * final_scale,
                             y_advance: 0.0,
                             cluster: 0,
-                            char_code: b' ' as u32,
+                            char_code: OBJ_REPLACEMENT as u32,
                         },
                         style,
                         entry: None,
+                        break_byte,
+                        can_break_after: false,
                         img_name: name,
                         subimg,
                         scale: final_scale,
                         tint,
-                        spr_w,
                         spr_h,
                         xoff,
                         yoff,
@@ -269,6 +322,9 @@ pub fn build_rich(
                     let t_shape = Instant::now();
                     let shape = shape_text_result(font_handle, &run_text, font_size);
                     us_shape += t_shape.elapsed().as_micros() as u64;
+
+                    let break_base = break_text.len();
+                    break_text.push_str(&run_text);
 
                     let t_ensure = Instant::now();
                     for g in &shape.glyphs {
@@ -286,11 +342,12 @@ pub fn build_rich(
                             glyph: g.clone(),
                             style: Arc::clone(&style),
                             entry,
+                            break_byte: (break_base + g.cluster as usize) as u32,
+                            can_break_after: false,
                             img_name: String::new(),
                             subimg: 0.0,
                             scale: 1.0,
                             tint: 0.0,
-                            spr_w: 0.0,
                             spr_h: 0.0,
                             xoff: 0.0,
                             yoff: 0.0,
@@ -301,37 +358,84 @@ pub fn build_rich(
             }
         }
 
-        // word wrap
+        apply_uax14_breaks(&mut visual_glyphs[paragraph_v_start..], &break_text);
+
+        // word wrap (UAX #14 break opportunities)
         let t_wrap = Instant::now();
         let mut cur_start = paragraph_v_start;
         let mut pen_x = 0.0f32;
-        let mut last_space_idx: isize = -1;
-        let mut last_space_w = 0.0f32;
+        let mut last_break_idx: isize = -1;
+        let mut last_break_w = 0.0f32;
 
-        for i in paragraph_v_start..visual_glyphs.len() {
-            let vg = &visual_glyphs[i];
-            let adv = vg.glyph.x_advance + letter_spacing;
+        let note_break = |glyphs: &[VisualGlyph],
+                          idx: usize,
+                          pen_after: f32,
+                          letter_spacing: f32,
+                          last_break_idx: &mut isize,
+                          last_break_w: &mut f32| {
+            if !glyphs[idx].can_break_after {
+                return;
+            }
+            let adv = glyphs[idx].glyph.x_advance + letter_spacing;
+            *last_break_w = if is_wrap_glue(&glyphs[idx]) {
+                pen_after - adv
+            } else {
+                pen_after
+            };
+            *last_break_idx = idx as isize;
+        };
 
-            if !vg.is_img {
-                let raw_w = vg.entry.as_ref().map(|e| e.raw_w).unwrap_or(0);
-                if raw_w == 0 {
-                    last_space_idx = i as isize;
-                    last_space_w = pen_x;
+        let rescan_breaks = |glyphs: &[VisualGlyph],
+                             from: usize,
+                             to_inclusive: usize,
+                             letter_spacing: f32,
+                             last_break_idx: &mut isize,
+                             last_break_w: &mut f32|
+         -> f32 {
+            *last_break_idx = -1;
+            *last_break_w = 0.0;
+            let mut pen = 0.0f32;
+            for j in from..=to_inclusive {
+                pen += glyphs[j].glyph.x_advance + letter_spacing;
+                if glyphs[j].can_break_after {
+                    let adv = glyphs[j].glyph.x_advance + letter_spacing;
+                    *last_break_w = if is_wrap_glue(&glyphs[j]) {
+                        pen - adv
+                    } else {
+                        pen
+                    };
+                    *last_break_idx = j as isize;
                 }
             }
+            pen
+        };
+
+        for i in paragraph_v_start..visual_glyphs.len() {
+            let adv = visual_glyphs[i].glyph.x_advance + letter_spacing;
 
             if max_width > 0.0 && (pen_x + adv) > max_width && cur_start < i {
-                if last_space_idx >= cur_start as isize {
+                if last_break_idx >= cur_start as isize {
+                    let bi = last_break_idx as usize;
+                    let glue = is_wrap_glue(&visual_glyphs[bi]);
+                    let end_idx = if glue {
+                        last_break_idx - 1
+                    } else {
+                        last_break_idx
+                    };
                     visual_lines.push(VisualLine {
                         start_idx: cur_start,
-                        end_idx: last_space_idx - 1,
-                        w: last_space_w,
+                        end_idx,
+                        w: last_break_w,
                     });
-                    cur_start = (last_space_idx + 1) as usize;
-                    pen_x = 0.0;
-                    for j in cur_start..=i {
-                        pen_x += visual_glyphs[j].glyph.x_advance + letter_spacing;
-                    }
+                    cur_start = bi + 1;
+                    pen_x = rescan_breaks(
+                        &visual_glyphs,
+                        cur_start,
+                        i,
+                        letter_spacing,
+                        &mut last_break_idx,
+                        &mut last_break_w,
+                    );
                 } else {
                     visual_lines.push(VisualLine {
                         start_idx: cur_start,
@@ -340,9 +444,27 @@ pub fn build_rich(
                     });
                     cur_start = i;
                     pen_x = adv;
+                    last_break_idx = -1;
+                    last_break_w = 0.0;
+                    note_break(
+                        &visual_glyphs,
+                        i,
+                        pen_x,
+                        letter_spacing,
+                        &mut last_break_idx,
+                        &mut last_break_w,
+                    );
                 }
             } else {
                 pen_x += adv;
+                note_break(
+                    &visual_glyphs,
+                    i,
+                    pen_x,
+                    letter_spacing,
+                    &mut last_break_idx,
+                    &mut last_break_w,
+                );
             }
         }
         if cur_start < visual_glyphs.len() {
