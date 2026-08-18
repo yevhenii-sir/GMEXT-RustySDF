@@ -27,15 +27,12 @@ use crate::sdf_renderer::{
 };
 use crate::shaper::{
     free_shape as sh_free_shape, get_shape, get_shape_glyph_count as sh_get_shape_glyph_count,
-    get_shape_glyph_info as sh_get_shape_glyph_info,
-    get_shape_glyphs_json as sh_get_shape_glyphs_json, set_bidi_mode as sh_set_bidi_mode,
-    shape_text as sh_shape_text,
+    set_bidi_mode as sh_set_bidi_mode, shape_text as sh_shape_text,
 };
-use gm_ext_wire::get_last_error_ptr;
+use gm_ext_wire::{get_last_error_ptr, GMBuffer, StructStream};
 
 thread_local! {
     static TLS_ASYNC_RESULT: Mutex<Option<GlyphResult>> = Mutex::new(None);
-    static TLS_ATLAS_LOOKUP: Mutex<Option<(Handle, u32, f64, f64)>> = Mutex::new(None);
     static TLS_RICH_LAST_IMAGE: Mutex<Option<(Handle, String)>> = Mutex::new(None);
 }
 
@@ -45,18 +42,13 @@ fn as_u8_mut(ptr: *mut c_char) -> *mut u8 {
 
 // ─── Font ───────────────────────────────────────────────────────────────────
 
-pub fn rusty_sdf_load_font(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    if buffer_ptr.is_null() {
-        set_last_error("null buffer pointer");
+pub fn rusty_sdf_load_font(data: GMBuffer) -> f64 {
+    let slice = data.as_slice();
+    if slice.is_empty() {
+        set_last_error("empty font buffer");
         return -1.0;
     }
-    let len = buffer_len as usize;
-    if len == 0 {
-        set_last_error("zero buffer length");
-        return -1.0;
-    }
-    let data = unsafe { std::slice::from_raw_parts(as_u8_mut(buffer_ptr), len).to_vec() };
-    let handle = fm_load_font(data);
+    let handle = fm_load_font(slice.to_vec());
     if handle == 0 {
         return -1.0;
     }
@@ -135,36 +127,6 @@ pub fn rusty_sdf_get_shape_glyph_count(shape_handle: f64) -> f64 {
         None => {
             set_last_error("invalid shape handle");
             -1.0
-        }
-    }
-}
-
-pub fn rusty_sdf_get_shape_glyph_info(shape_handle: f64, index: f64) -> String {
-    match sh_get_shape_glyph_info(shape_handle as Handle, index as u32) {
-        Some(info) => format!(
-            "{{\"font_handle\":{},\"glyph_id\":{},\"x_offset\":{},\"y_offset\":{},\"x_advance\":{},\"y_advance\":{},\"cluster\":{},\"char_code\":{}}}",
-            info.font_handle,
-            info.glyph_id,
-            info.x_offset,
-            info.y_offset,
-            info.x_advance,
-            info.y_advance,
-            info.cluster,
-            info.char_code
-        ),
-        None => {
-            set_last_error("invalid shape handle or glyph index");
-            String::new()
-        }
-    }
-}
-
-pub fn rusty_sdf_get_shape_glyphs_json(shape_handle: f64) -> String {
-    match sh_get_shape_glyphs_json(shape_handle as Handle) {
-        Some(json) => json,
-        None => {
-            set_last_error("invalid shape handle");
-            String::new()
         }
     }
 }
@@ -253,58 +215,24 @@ pub fn rusty_sdf_get_buffer_bpp() -> f64 {
     get_render_bytes_per_pixel() as f64
 }
 
-pub fn rusty_sdf_get_glyph_bounds(font_handle: f64, glyph_id: f64, font_size: f64) -> String {
-    match sdf_get_glyph_bounds(font_handle as Handle, glyph_id as u32, font_size) {
-        Some((w, h, x_min, y_max)) => format!(
-            "{{\"width\":{},\"height\":{},\"x_min\":{},\"y_max\":{}}}",
-            w, h, x_min, y_max
-        ),
-        None => {
-            set_last_error("invalid font handle, glyph id, or glyph has no outline");
-            String::new()
-        }
-    }
-}
-
-pub fn rusty_sdf_get_glyph_bounds_buffer(
+pub fn rusty_sdf_get_glyph_bounds(
     font_handle: f64,
     glyph_id: f64,
     font_size: f64,
-    buffer_ptr: *mut c_char,
-) -> f64 {
-    if buffer_ptr.is_null() {
-        set_last_error("null buffer pointer");
-        return -1.0;
-    }
-    const MIN_LEN: usize = 64;
+) -> StructStream {
+    let mut s = StructStream::new();
     match sdf_get_glyph_bounds(font_handle as Handle, glyph_id as u32, font_size) {
         Some((w, h, x_min, y_max)) => {
-            let mut writer = gm_buffer::GMBufferWriter::new(64);
-            writer.write_type(gm_buffer::GMType::TypedArray);
-            writer.data.extend_from_slice(&4u16.to_le_bytes());
-            writer.data.push(gm_buffer::GMType::F64 as u8);
-            writer.data.extend_from_slice(&(w as f64).to_le_bytes());
-            writer.data.extend_from_slice(&(h as f64).to_le_bytes());
-            writer.data.extend_from_slice(&x_min.to_le_bytes());
-            writer.data.extend_from_slice(&y_max.to_le_bytes());
-            if writer.data.len() > MIN_LEN {
-                set_last_error("internal error: glyph bounds buffer overflow");
-                return -1.0;
-            }
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    writer.data.as_ptr(),
-                    as_u8_mut(buffer_ptr),
-                    writer.data.len(),
-                );
-            }
-            writer.data.len() as f64
+            s.add_f64("width", w as f64);
+            s.add_f64("height", h as f64);
+            s.add_f64("x_min", x_min);
+            s.add_f64("y_max", y_max);
         }
         None => {
             set_last_error("invalid font handle, glyph id, or glyph has no outline");
-            -1.0
         }
     }
+    s
 }
 
 pub fn rusty_sdf_render_glyph(font_handle: f64, glyph_id: f64, font_size: f64) -> f64 {
@@ -352,88 +280,34 @@ pub fn rusty_sdf_request_glyph(
     }
 }
 
-pub fn rusty_sdf_poll_glyph() -> String {
+pub fn rusty_sdf_poll_glyph() -> StructStream {
+    let mut s = StructStream::new();
     match poll_glyph_result() {
         Some(result) => {
-            let json = format!(
-                "{{\"font_handle\":{},\"glyph_id\":{},\"font_size\":{},\"padding\":{},\"spread\":{},\"width\":{},\"height\":{},\"raw_w\":{},\"raw_h\":{},\"x_min\":{},\"y_max\":{}}}",
-                result.font_handle,
-                result.glyph_id,
-                result.font_size,
-                result.padding,
-                result.spread,
-                result.width,
-                result.height,
-                result.raw_w,
-                result.raw_h,
-                result.x_min,
-                result.y_max
-            );
+            s.add_f64("font_handle", result.font_handle as f64);
+            s.add_f64("glyph_id", result.glyph_id as f64);
+            s.add_f64("font_size", result.font_size);
+            s.add_f64("padding", result.padding as f64);
+            s.add_f64("spread", result.spread as f64);
+            s.add_f64("width", result.width as f64);
+            s.add_f64("height", result.height as f64);
+            s.add_f64("raw_w", result.raw_w as f64);
+            s.add_f64("raw_h", result.raw_h as f64);
+            s.add_f64("x_min", result.x_min);
+            s.add_f64("y_max", result.y_max);
             TLS_ASYNC_RESULT.with(|cell| {
                 *cell.lock().unwrap_or_else(|e| e.into_inner()) = Some(result);
             });
-            json
         }
-        None => String::new(),
+        None => {}
     }
+    s
 }
 
-pub fn rusty_sdf_poll_glyph_buffer(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    if buffer_ptr.is_null() {
-        set_last_error("null buffer pointer");
-        return -1.0;
-    }
-    let len = buffer_len as usize;
-    if len < 96 {
-        set_last_error("buffer too small for glyph metadata");
-        return -1.0;
-    }
-    match poll_glyph_result() {
-        Some(result) => {
-            let values: [f64; 11] = [
-                result.font_handle as f64,
-                result.glyph_id as f64,
-                result.font_size as f64,
-                result.padding as f64,
-                result.spread as f64,
-                result.width as f64,
-                result.height as f64,
-                result.raw_w as f64,
-                result.raw_h as f64,
-                result.x_min as f64,
-                result.y_max as f64,
-            ];
-            let mut writer = gm_buffer::GMBufferWriter::new(128);
-            writer.write_f64_typed_array(&values);
-            TLS_ASYNC_RESULT.with(|cell| {
-                *cell.lock().unwrap_or_else(|e| e.into_inner()) = Some(result);
-            });
-            let data_len = writer.data.len();
-            if data_len > len {
-                set_last_error("buffer too small for glyph metadata");
-                return -2.0;
-            }
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    writer.data.as_ptr(),
-                    as_u8_mut(buffer_ptr),
-                    data_len,
-                );
-            }
-            data_len as f64
-        }
-        None => 0.0,
-    }
-}
-
-pub fn rusty_sdf_poll_glyph_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    if buffer_ptr.is_null() {
-        set_last_error("null buffer pointer");
-        return -1.0;
-    }
-    let len = buffer_len as usize;
-    if len == 0 {
-        set_last_error("zero buffer length");
+pub fn rusty_sdf_poll_glyph_pixels(dst: GMBuffer) -> f64 {
+    let len = dst.len as usize;
+    if dst.ptr.is_null() || len == 0 {
+        set_last_error("empty destination buffer");
         return -1.0;
     }
     let mut copied_len = -1.0;
@@ -446,11 +320,7 @@ pub fn rusty_sdf_poll_glyph_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> 
             } else {
                 let copy_len = pixel_len.min(len);
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        result.pixels.as_ptr(),
-                        as_u8_mut(buffer_ptr),
-                        copy_len,
-                    );
+                    std::ptr::copy_nonoverlapping(result.pixels.as_ptr(), dst.ptr, copy_len);
                 }
                 copied_len = copy_len as f64;
             }
@@ -464,13 +334,8 @@ pub fn rusty_sdf_poll_glyph_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> 
 /// Copy last async glyph into a destination buffer laid out for `buffer_set_surface`.
 /// Destination is `stride_w * stride_h` RGBA8 pixels (row-major). Glyph is top-left;
 /// the full destination is zeroed first so padding matches the surface.
-pub fn rusty_sdf_poll_glyph_pixels_strided(
-    buffer_ptr: *mut c_char,
-    buffer_len: f64,
-    stride_w: f64,
-    stride_h: f64,
-) -> f64 {
-    if buffer_ptr.is_null() {
+pub fn rusty_sdf_poll_glyph_pixels_strided(dst: GMBuffer, stride_w: f64, stride_h: f64) -> f64 {
+    if dst.ptr.is_null() {
         set_last_error("null buffer pointer");
         return -1.0;
     }
@@ -485,7 +350,7 @@ pub fn rusty_sdf_poll_glyph_pixels_strided(
         .checked_mul(stride_h)
         .and_then(|px| px.checked_mul(4))
         .unwrap_or(0);
-    let len = buffer_len as usize;
+    let len = dst.len as usize;
     if need == 0 || len < need {
         set_last_error("buffer too small for strided glyph upload");
         return -1.0;
@@ -499,14 +364,13 @@ pub fn rusty_sdf_poll_glyph_pixels_strided(
             let gh = result.height as usize;
             if gw == 0 || gh == 0 || result.pixels.is_empty() {
                 unsafe {
-                    std::ptr::write_bytes(as_u8_mut(buffer_ptr), 0, need);
+                    std::ptr::write_bytes(dst.ptr, 0, need);
                 }
                 copied_len = 0.0;
                 return;
             }
             if gw > stride_w || gh > stride_h {
                 set_last_error("glyph larger than upload stride");
-                // Put result back so caller can retry with a larger scratch.
                 *guard = Some(result);
                 copied_len = -2.0;
                 return;
@@ -521,12 +385,12 @@ pub fn rusty_sdf_poll_glyph_pixels_strided(
                 return;
             }
 
-            let dst = unsafe { std::slice::from_raw_parts_mut(as_u8_mut(buffer_ptr), need) };
-            dst.fill(0);
+            let out = unsafe { std::slice::from_raw_parts_mut(dst.ptr, need) };
+            out.fill(0);
             for y in 0..gh {
                 let src_off = y * src_stride;
                 let dst_off = y * dst_stride;
-                dst[dst_off..dst_off + src_stride]
+                out[dst_off..dst_off + src_stride]
                     .copy_from_slice(&result.pixels[src_off..src_off + src_stride]);
             }
             copied_len = need as f64;
@@ -539,14 +403,18 @@ pub fn rusty_sdf_poll_glyph_pixels_strided(
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 
-pub fn rusty_sdf_measure_text(font_handle: f64, text: &str, font_size: f64) -> String {
-    match sdf_measure_text(font_handle as Handle, text, font_size) {
-        Some((width, height)) => format!("{{\"width\":{},\"height\":{}}}", width, height),
+pub fn rusty_sdf_measure_text(font_handle: f64, text: String, font_size: f64) -> StructStream {
+    let mut s = StructStream::new();
+    match sdf_measure_text(font_handle as Handle, &text, font_size) {
+        Some((width, height)) => {
+            s.add_f64("width", width);
+            s.add_f64("height", height);
+        }
         None => {
             set_last_error("invalid font handle");
-            String::new()
         }
     }
+    s
 }
 
 pub fn rusty_sdf_ping() -> String {
@@ -584,6 +452,10 @@ fn write_f64_array_to_ptr(values: &[f64], buffer_ptr: *mut c_char, buffer_len: f
         std::ptr::copy_nonoverlapping(writer.data.as_ptr(), as_u8_mut(buffer_ptr), data_len);
     }
     data_len as f64
+}
+
+fn write_f64_array_to_gmbuffer(values: &[f64], dst: GMBuffer) -> f64 {
+    write_f64_array_to_ptr(values, dst.ptr as *mut c_char, dst.len as f64)
 }
 
 // ─── Atlas ──────────────────────────────────────────────────────────────────
@@ -640,31 +512,42 @@ pub fn rusty_sdf_atlas_ensure_glyph(
     atlas::ensure_glyph_sync(fh, gid, base_size, spread, mode as u32) as f64
 }
 
-pub fn rusty_sdf_atlas_prepare_lookup(
+pub fn rusty_sdf_atlas_lookup(
     font_handle: f64,
     glyph_id: f64,
     base_size: f64,
     spread: f64,
-) -> f64 {
-    TLS_ATLAS_LOOKUP.with(|cell| {
-        *cell.lock().unwrap_or_else(|e| e.into_inner()) =
-            Some((font_handle as Handle, glyph_id as u32, base_size, spread));
-    });
-    0.0
-}
-
-pub fn rusty_sdf_atlas_lookup_buffer(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    let key = TLS_ATLAS_LOOKUP.with(|cell| cell.lock().unwrap_or_else(|e| e.into_inner()).clone());
-    match key {
-        Some((fh, gid, base, spread)) => match atlas::lookup(fh, gid, base, spread) {
-            Some(e) => write_f64_array_to_ptr(&atlas::entry_to_f64s(&e), buffer_ptr, buffer_len),
-            None => write_f64_array_to_ptr(&[0.0], buffer_ptr, buffer_len),
-        },
+) -> StructStream {
+    let mut s = StructStream::new();
+    match atlas::lookup(
+        font_handle as Handle,
+        glyph_id as u32,
+        base_size,
+        spread,
+    ) {
+        Some(e) => {
+            let vals = atlas::entry_to_f64s(&e);
+            s.add_f64("found", vals[0]);
+            s.add_f64("page_index", vals[1]);
+            s.add_f64("atlas_x", vals[2]);
+            s.add_f64("atlas_y", vals[3]);
+            s.add_f64("w", vals[4]);
+            s.add_f64("h", vals[5]);
+            s.add_f64("raw_w", vals[6]);
+            s.add_f64("raw_h", vals[7]);
+            s.add_f64("u1", vals[8]);
+            s.add_f64("v1", vals[9]);
+            s.add_f64("u2", vals[10]);
+            s.add_f64("v2", vals[11]);
+            s.add_f64("x_min", vals[12]);
+            s.add_f64("y_max", vals[13]);
+            s.add_f64("async_pending", vals[14]);
+        }
         None => {
-            set_last_error("atlas_prepare_lookup not called");
-            -1.0
+            s.add_f64("found", 0.0);
         }
     }
+    s
 }
 
 pub fn rusty_sdf_atlas_commit_glyph(
@@ -696,28 +579,22 @@ pub fn rusty_sdf_atlas_commit_glyph(
     }
 }
 
-pub fn rusty_sdf_atlas_poll_dirty_meta(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
+pub fn rusty_sdf_atlas_poll_dirty_meta(dst: GMBuffer) -> f64 {
     match atlas::poll_dirty_meta() {
-        Some((page, x, y, w, h)) => write_f64_array_to_ptr(
-            &[page as f64, x as f64, y as f64, w as f64, h as f64],
-            buffer_ptr,
-            buffer_len,
-        ),
+        Some((page, x, y, w, h)) => {
+            write_f64_array_to_gmbuffer(&[page as f64, x as f64, y as f64, w as f64, h as f64], dst)
+        }
         None => 0.0,
     }
 }
 
-pub fn rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    if buffer_ptr.is_null() {
+pub fn rusty_sdf_atlas_poll_dirty_pixels(dst: GMBuffer) -> f64 {
+    if dst.ptr.is_null() || dst.len == 0 {
         set_last_error("null buffer pointer");
         return -1.0;
     }
-    let len = buffer_len as usize;
-    if len == 0 {
-        return -1.0;
-    }
-    let dst = unsafe { std::slice::from_raw_parts_mut(as_u8_mut(buffer_ptr), len) };
-    match atlas::poll_dirty_pixels(dst) {
+    let slice = unsafe { std::slice::from_raw_parts_mut(dst.ptr, dst.len as usize) };
+    match atlas::poll_dirty_pixels(slice) {
         Some(n) => n as f64,
         None => 0.0,
     }

@@ -473,78 +473,10 @@ pub fn get_shape(handle: Handle) -> Option<ShapeResult> {
         .cloned()
 }
 
-pub fn get_shape_glyphs_json(handle: Handle) -> Option<String> {
-    let shape = SHAPE_HANDLES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(&handle)?
-        .clone();
-    let mut json = String::with_capacity(shape.glyphs.len() * 128);
-    json.push('[');
-    for (i, g) in shape.glyphs.iter().enumerate() {
-        if i > 0 {
-            json.push(',');
-        }
-        json.push_str(&format!(
-            "{{\"font_handle\":{},\"glyph_id\":{},\"x_offset\":{},\"y_offset\":{},\"x_advance\":{},\"y_advance\":{},\"cluster\":{},\"char_code\":{}}}",
-            g.font_handle, g.glyph_id, g.x_offset, g.y_offset, g.x_advance, g.y_advance, g.cluster, g.char_code
-        ));
-    }
-    json.push(']');
-    Some(json)
-}
-
-#[allow(dead_code)]
-pub fn write_shape_glyphs_buffer(
-    handle: Handle,
-    writer: &mut crate::gm_buffer::GMBufferWriter,
-) -> Option<()> {
-    let shape = SHAPE_HANDLES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(&handle)?
-        .clone();
-    let count = shape.glyphs.len() as u16;
-    let elem_count = count * 8;
-
-    writer.write_type(crate::gm_buffer::GMType::TypedArray);
-    writer.data.extend_from_slice(&elem_count.to_le_bytes());
-    writer.data.push(crate::gm_buffer::GMType::F64 as u8);
-
-    for g in &shape.glyphs {
-        writer
-            .data
-            .extend_from_slice(&(g.font_handle as f64).to_le_bytes());
-        writer
-            .data
-            .extend_from_slice(&(g.glyph_id as f64).to_le_bytes());
-        writer.data.extend_from_slice(&g.x_offset.to_le_bytes());
-        writer.data.extend_from_slice(&g.y_offset.to_le_bytes());
-        writer.data.extend_from_slice(&g.x_advance.to_le_bytes());
-        writer.data.extend_from_slice(&g.y_advance.to_le_bytes());
-        writer
-            .data
-            .extend_from_slice(&(g.cluster as f64).to_le_bytes());
-        writer
-            .data
-            .extend_from_slice(&(g.char_code as f64).to_le_bytes());
-    }
-
-    Some(())
-}
-
 pub fn get_shape_glyph_count(handle: Handle) -> Option<u32> {
     SHAPE_HANDLES
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .get(&handle)
         .map(|s| s.glyphs.len() as u32)
-}
-
-pub fn get_shape_glyph_info(handle: Handle, index: u32) -> Option<GlyphInfo> {
-    SHAPE_HANDLES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(&handle)
-        .and_then(|s| s.glyphs.get(index as usize).cloned())
 }

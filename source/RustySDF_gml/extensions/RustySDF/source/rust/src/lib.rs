@@ -4,12 +4,14 @@
 
 #![allow(non_snake_case)]
 
-mod generated;
+pub mod generated;
 pub mod user;
 
 include!("extra_mods.inc.rs");
 
 pub use generated::ffi;
+pub use generated::types;
+pub use generated::codecs;
 
 #[cfg(target_os = "android")]
 #[allow(non_snake_case)]

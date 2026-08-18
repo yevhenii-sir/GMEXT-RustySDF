@@ -1,9 +1,31 @@
 // ##### extgen :: Auto-generated file do not edit!! #####
 
+#![allow(non_upper_case_globals)]
+
 use std::ffi::c_char;
 use std::panic::catch_unwind;
-use gm_ext_wire::{clear_last_error, get_last_error_ptr, set_last_error, store_tls_string};
+use gm_ext_wire::{clear_last_error, get_last_error_ptr, set_last_error};
+use gm_ext_wire::store_tls_string;
+use gm_ext_wire::{GMBufferReader, GMSliceWriter, BufferQueue, GMBuffer};
 use crate::user;
+
+static __buffer_queue: BufferQueue = BufferQueue::new();
+
+#[no_mangle]
+pub extern "C" fn __EXT_NATIVE__RustySDF_queue_buffer(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
+    match catch_unwind(|| {
+        clear_last_error();
+        let __buff = GMBuffer::new(__arg_buffer as *mut u8, __arg_buffer_length as u64);
+        __buffer_queue.push(__buff);
+        1.0
+    }) {
+        Ok(v) => v,
+        Err(_) => {
+            set_last_error("panic in __EXT_NATIVE__RustySDF_queue_buffer");
+            -1.0
+        }
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn __EXT_NATIVE__RustySDF_get_last_error() -> *const c_char {
@@ -11,10 +33,18 @@ pub extern "C" fn __EXT_NATIVE__RustySDF_get_last_error() -> *const c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_load_font(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_load_font(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_load_font(buffer_ptr, buffer_len)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let data = __buffer_queue.pop_front()?;
+            Some(user::rusty_sdf_load_font(data) as f64)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
@@ -138,36 +168,6 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_shape_glyph_count(shape_handle: f6
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_shape_glyph_info(shape_handle: f64, index: f64) -> *const c_char {
-    match catch_unwind(|| {
-        clear_last_error();
-        let s = user::rusty_sdf_get_shape_glyph_info(shape_handle, index);
-        store_tls_string(s)
-    }) {
-        Ok(v) => v,
-        Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_get_shape_glyph_info");
-            std::ptr::null()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_shape_glyphs_json(shape_handle: f64) -> *const c_char {
-    match catch_unwind(|| {
-        clear_last_error();
-        let s = user::rusty_sdf_get_shape_glyphs_json(shape_handle);
-        store_tls_string(s)
-    }) {
-        Ok(v) => v,
-        Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_get_shape_glyphs_json");
-            std::ptr::null()
-        }
-    }
-}
-
-#[no_mangle]
 pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_shape_glyphs_buffer(shape_handle: f64, buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
@@ -266,29 +266,27 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_buffer_bpp() -> f64 {
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_glyph_bounds(font_handle: f64, glyph_id: f64, font_size: f64) -> *const c_char {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_glyph_bounds(__arg_buffer: *mut c_char, __arg_buffer_length: f64, __ret_buffer: *mut c_char, __ret_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        let s = user::rusty_sdf_get_glyph_bounds(font_handle, glyph_id, font_size);
-        store_tls_string(s)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let font_handle = __br.read_f64()?;
+            let glyph_id = __br.read_f64()?;
+            let font_size = __br.read_f64()?;
+            let __result = user::rusty_sdf_get_glyph_bounds(font_handle, glyph_id, font_size);
+            let mut __bw = unsafe { GMSliceWriter::from_raw_parts(__ret_buffer as *mut u8, __ret_buffer_length as usize) };
+            __result.write_to(&mut __bw)?;
+            Some(0.0)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
             set_last_error("panic in __EXT_NATIVE__rusty_sdf_get_glyph_bounds");
-            std::ptr::null()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer(font_handle: f64, glyph_id: f64, font_size: f64, buffer_ptr: *mut c_char) -> f64 {
-    match catch_unwind(|| {
-        clear_last_error();
-        user::rusty_sdf_get_glyph_bounds_buffer(font_handle, glyph_id, font_size, buffer_ptr)
-    }) {
-        Ok(v) => v,
-        Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer");
             -1.0
         }
     }
@@ -337,39 +335,41 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_request_glyph(font_handle: f64, glyph_
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph() -> *const c_char {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph(__ret_buffer: *mut c_char, __ret_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        let s = user::rusty_sdf_poll_glyph();
-        store_tls_string(s)
+        let __wire: Option<f64> = (|| {
+            let __result = user::rusty_sdf_poll_glyph();
+            let mut __bw = unsafe { GMSliceWriter::from_raw_parts(__ret_buffer as *mut u8, __ret_buffer_length as usize) };
+            __result.write_to(&mut __bw)?;
+            Some(0.0)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
             set_last_error("panic in __EXT_NATIVE__rusty_sdf_poll_glyph");
-            std::ptr::null()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_buffer(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    match catch_unwind(|| {
-        clear_last_error();
-        user::rusty_sdf_poll_glyph_buffer(buffer_ptr, buffer_len)
-    }) {
-        Ok(v) => v,
-        Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_poll_glyph_buffer");
             -1.0
         }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_poll_glyph_pixels(buffer_ptr, buffer_len)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let dst = __buffer_queue.pop_front()?;
+            Some(user::rusty_sdf_poll_glyph_pixels(dst) as f64)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
@@ -380,10 +380,20 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(buffer_ptr: *mut c_c
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(buffer_ptr: *mut c_char, buffer_len: f64, stride_w: f64, stride_h: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_poll_glyph_pixels_strided(buffer_ptr, buffer_len, stride_w, stride_h)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let dst = __buffer_queue.pop_front()?;
+            let stride_w = __br.read_f64()?;
+            let stride_h = __br.read_f64()?;
+            Some(user::rusty_sdf_poll_glyph_pixels_strided(dst, stride_w, stride_h) as f64)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
@@ -394,17 +404,28 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(buffer_ptr: 
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_measure_text(font_handle: f64, text: *const c_char, font_size: f64) -> *const c_char {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_measure_text(__arg_buffer: *mut c_char, __arg_buffer_length: f64, __ret_buffer: *mut c_char, __ret_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        let text_str = if text.is_null() { "" } else { unsafe { std::ffi::CStr::from_ptr(text) }.to_str().unwrap_or("") };
-        let s = user::rusty_sdf_measure_text(font_handle, text_str, font_size);
-        store_tls_string(s)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let font_handle = __br.read_f64()?;
+            let text = __br.read_idl_string()?.to_string();
+            let font_size = __br.read_f64()?;
+            let __result = user::rusty_sdf_measure_text(font_handle, text, font_size);
+            let mut __bw = unsafe { GMSliceWriter::from_raw_parts(__ret_buffer as *mut u8, __ret_buffer_length as usize) };
+            __result.write_to(&mut __bw)?;
+            Some(0.0)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
             set_last_error("panic in __EXT_NATIVE__rusty_sdf_measure_text");
-            std::ptr::null()
+            -1.0
         }
     }
 }
@@ -524,28 +545,28 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_ensure_glyph(font_handle: f64, g
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_prepare_lookup(font_handle: f64, glyph_id: f64, base_size: f64, spread: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_lookup(__arg_buffer: *mut c_char, __arg_buffer_length: f64, __ret_buffer: *mut c_char, __ret_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_atlas_prepare_lookup(font_handle, glyph_id, base_size, spread)
-    }) {
-        Ok(v) => v,
-        Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_atlas_prepare_lookup");
-            -1.0
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let font_handle = __br.read_f64()?;
+            let glyph_id = __br.read_f64()?;
+            let base_size = __br.read_f64()?;
+            let spread = __br.read_f64()?;
+            let __result = user::rusty_sdf_atlas_lookup(font_handle, glyph_id, base_size, spread);
+            let mut __bw = unsafe { GMSliceWriter::from_raw_parts(__ret_buffer as *mut u8, __ret_buffer_length as usize) };
+            __result.write_to(&mut __bw)?;
+            Some(0.0)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
         }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_lookup_buffer(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
-    match catch_unwind(|| {
-        clear_last_error();
-        user::rusty_sdf_atlas_lookup_buffer(buffer_ptr, buffer_len)
     }) {
         Ok(v) => v,
         Err(_) => {
-            set_last_error("panic in __EXT_NATIVE__rusty_sdf_atlas_lookup_buffer");
+            set_last_error("panic in __EXT_NATIVE__rusty_sdf_atlas_lookup");
             -1.0
         }
     }
@@ -566,10 +587,18 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_commit_glyph(font_handle: f64, g
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_atlas_poll_dirty_meta(buffer_ptr, buffer_len)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let dst = __buffer_queue.pop_front()?;
+            Some(user::rusty_sdf_atlas_poll_dirty_meta(dst) as f64)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {
@@ -580,10 +609,18 @@ pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(buffer_ptr: *mut
 }
 
 #[no_mangle]
-pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr: *mut c_char, buffer_len: f64) -> f64 {
+pub extern "C" fn __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(__arg_buffer: *mut c_char, __arg_buffer_length: f64) -> f64 {
     match catch_unwind(|| {
         clear_last_error();
-        user::rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr, buffer_len)
+        let __wire: Option<f64> = (|| {
+            let mut __br = unsafe { GMBufferReader::from_raw_parts(__arg_buffer as *const u8, __arg_buffer_length as usize) };
+            let dst = __buffer_queue.pop_front()?;
+            Some(user::rusty_sdf_atlas_poll_dirty_pixels(dst) as f64)
+        })();
+        match __wire {
+            Some(v) => v,
+            None => { set_last_error("wire decode/encode failed"); -1.0 }
+        }
     }) {
         Ok(v) => v,
         Err(_) => {

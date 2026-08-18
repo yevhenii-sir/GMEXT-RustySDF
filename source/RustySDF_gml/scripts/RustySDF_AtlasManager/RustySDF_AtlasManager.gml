@@ -109,7 +109,9 @@ function RustySDF_AtlasFlushDirty() {
     }
 
     while (true) {
-        var written = rusty_sdf_atlas_poll_dirty_meta(buffer_get_address(meta_buf), buffer_get_size(meta_buf));
+        __RustySDF_queue_buffer(buffer_get_address(meta_buf), buffer_get_size(meta_buf));
+        var __args_buffer = __ext_core_get_args_buffer();
+        var written = __rusty_sdf_atlas_poll_dirty_meta(buffer_get_address(__args_buffer), buffer_tell(__args_buffer));
         if (written <= 0) break;
 
         buffer_seek(meta_buf, buffer_seek_start, 0);
@@ -128,7 +130,9 @@ function RustySDF_AtlasFlushDirty() {
         var req = w * h * 4;
         if (buffer_get_size(pixel_buf) < req) buffer_resize(pixel_buf, req);
 
-        var copied = rusty_sdf_atlas_poll_dirty_pixels(buffer_get_address(pixel_buf), buffer_get_size(pixel_buf));
+        __RustySDF_queue_buffer(buffer_get_address(pixel_buf), buffer_get_size(pixel_buf));
+        __args_buffer = __ext_core_get_args_buffer();
+        var copied = __rusty_sdf_atlas_poll_dirty_pixels(buffer_get_address(__args_buffer), buffer_tell(__args_buffer));
         if (copied <= 0) continue;
 
         var upload = __RustySDF_UploadPackedGlyphToScratch(pixel_buf, w, h);
@@ -140,22 +144,27 @@ function RustySDF_AtlasFlushDirty() {
 }
 
 function __RustySDF_AtlasLookupEntry(font_handle, glyph_id, base_font_size, spread) {
-    rusty_sdf_atlas_prepare_lookup(font_handle, glyph_id, base_font_size, spread);
-    var buf = global.rusty_sdf_atlas_lookup_buf;
-    var written = rusty_sdf_atlas_lookup_buffer(buffer_get_address(buf), buffer_get_size(buf));
-    if (written <= 0) return undefined;
-    buffer_seek(buf, buffer_seek_start, 0);
-    var flat = __ext_core_buffer_unmarshal_value(buf, []);
-    if (!is_array(flat) || array_length(flat) < 1 || flat[0] < 1) return undefined;
-    if (array_length(flat) < 15) return undefined;
+    var __args_buffer = __ext_core_get_args_buffer();
+    buffer_write(__args_buffer, buffer_f64, font_handle);
+    buffer_write(__args_buffer, buffer_f64, glyph_id);
+    buffer_write(__args_buffer, buffer_f64, base_font_size);
+    buffer_write(__args_buffer, buffer_f64, spread);
+    var __ret_buffer = __ext_core_get_ret_buffer();
+    __rusty_sdf_atlas_lookup(
+        buffer_get_address(__args_buffer), buffer_tell(__args_buffer),
+        buffer_get_address(__ret_buffer), buffer_get_size(__ret_buffer)
+    );
+    buffer_seek(__ret_buffer, buffer_seek_start, 0);
+    var info = __ext_core_buffer_unmarshal_value(__ret_buffer, []);
+    if (!is_struct(info) || !variable_struct_exists(info, "found") || info.found < 1) return undefined;
     return {
-        page_index: flat[1],
-        atlas_x: flat[2], atlas_y: flat[3],
-        w: flat[4], h: flat[5], raw_w: flat[6], raw_h: flat[7],
-        u1: flat[8], v1: flat[9], u2: flat[10], v2: flat[11],
-        x_min: flat[12], y_max: flat[13],
+        page_index: info.page_index,
+        atlas_x: info.atlas_x, atlas_y: info.atlas_y,
+        w: info.w, h: info.h, raw_w: info.raw_w, raw_h: info.raw_h,
+        u1: info.u1, v1: info.v1, u2: info.u2, v2: info.v2,
+        x_min: info.x_min, y_max: info.y_max,
         glyph_id: glyph_id, font_handle: font_handle, base_font_size: base_font_size,
-        _async_pending: (flat[14] > 0)
+        _async_pending: (info.async_pending > 0)
     };
 }
 

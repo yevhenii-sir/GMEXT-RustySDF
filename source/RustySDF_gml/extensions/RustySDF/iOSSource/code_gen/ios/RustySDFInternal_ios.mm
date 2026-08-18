@@ -5,7 +5,7 @@
 
 extern "C" {
 
-double __EXT_NATIVE__rusty_sdf_load_font(char* buffer_ptr, double buffer_len);
+double __EXT_NATIVE__rusty_sdf_load_font(char* __arg_buffer, double __arg_buffer_length);
 double __EXT_NATIVE__rusty_sdf_free_font(double font_handle);
 double __EXT_NATIVE__rusty_sdf_add_fallback(double font_handle, double fallback_handle);
 double __EXT_NATIVE__rusty_sdf_get_font_glyph_count(double font_handle);
@@ -14,8 +14,6 @@ double __EXT_NATIVE__rusty_sdf_free_shape(double shape_handle);
 double __EXT_NATIVE__rusty_sdf_get_shape_width(double shape_handle);
 double __EXT_NATIVE__rusty_sdf_get_shape_height(double shape_handle);
 double __EXT_NATIVE__rusty_sdf_get_shape_glyph_count(double shape_handle);
-char* __EXT_NATIVE__rusty_sdf_get_shape_glyph_info(double shape_handle, double index);
-char* __EXT_NATIVE__rusty_sdf_get_shape_glyphs_json(double shape_handle);
 double __EXT_NATIVE__rusty_sdf_get_shape_glyphs_buffer(double shape_handle, char* buffer_ptr, double buffer_len);
 double __EXT_NATIVE__rusty_sdf_set_bidi_mode(double mode);
 double __EXT_NATIVE__rusty_sdf_set_buffer(char* buffer_ptr, double buf_w, double buf_h);
@@ -23,16 +21,14 @@ double __EXT_NATIVE__rusty_sdf_set_params(double padding, double spread);
 double __EXT_NATIVE__rusty_sdf_set_mode(double mode);
 double __EXT_NATIVE__rusty_sdf_get_mode(void);
 double __EXT_NATIVE__rusty_sdf_get_buffer_bpp(void);
-char* __EXT_NATIVE__rusty_sdf_get_glyph_bounds(double font_handle, double glyph_id, double font_size);
-double __EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer(double font_handle, double glyph_id, double font_size, char* buffer_ptr);
+double __EXT_NATIVE__rusty_sdf_get_glyph_bounds(char* __arg_buffer, double __arg_buffer_length, char* __ret_buffer, double __ret_buffer_length);
 double __EXT_NATIVE__rusty_sdf_render_glyph(double font_handle, double glyph_id, double font_size);
 double __EXT_NATIVE__rusty_sdf_render_char(double font_handle, double char_code, double font_size);
 double __EXT_NATIVE__rusty_sdf_request_glyph(double font_handle, double glyph_id, double font_size, double padding, double spread, double mode);
-char* __EXT_NATIVE__rusty_sdf_poll_glyph(void);
-double __EXT_NATIVE__rusty_sdf_poll_glyph_buffer(char* buffer_ptr, double buffer_len);
-double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(char* buffer_ptr, double buffer_len);
-double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(char* buffer_ptr, double buffer_len, double stride_w, double stride_h);
-char* __EXT_NATIVE__rusty_sdf_measure_text(double font_handle, char* text, double font_size);
+double __EXT_NATIVE__rusty_sdf_poll_glyph(char* __ret_buffer, double __ret_buffer_length);
+double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(char* __arg_buffer, double __arg_buffer_length);
+double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(char* __arg_buffer, double __arg_buffer_length);
+double __EXT_NATIVE__rusty_sdf_measure_text(char* __arg_buffer, double __arg_buffer_length, char* __ret_buffer, double __ret_buffer_length);
 char* __EXT_NATIVE__rusty_sdf_ping(void);
 char* __EXT_NATIVE__rusty_sdf_get_last_error(void);
 double __EXT_NATIVE__rusty_sdf_atlas_init(double width, double height, double padding);
@@ -41,11 +37,10 @@ double __EXT_NATIVE__rusty_sdf_atlas_clear(void);
 double __EXT_NATIVE__rusty_sdf_atlas_get_version(void);
 double __EXT_NATIVE__rusty_sdf_atlas_page_count(void);
 double __EXT_NATIVE__rusty_sdf_atlas_ensure_glyph(double font_handle, double glyph_id, double base_size, double spread, double mode, double async_flag);
-double __EXT_NATIVE__rusty_sdf_atlas_prepare_lookup(double font_handle, double glyph_id, double base_size, double spread);
-double __EXT_NATIVE__rusty_sdf_atlas_lookup_buffer(char* buffer_ptr, double buffer_len);
+double __EXT_NATIVE__rusty_sdf_atlas_lookup(char* __arg_buffer, double __arg_buffer_length, char* __ret_buffer, double __ret_buffer_length);
 double __EXT_NATIVE__rusty_sdf_atlas_commit_glyph(double font_handle, double glyph_id, double base_size, double spread, double width, double height, double raw_w, double raw_h, double x_min, double y_max);
-double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(char* buffer_ptr, double buffer_len);
-double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(char* buffer_ptr, double buffer_len);
+double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(char* __arg_buffer, double __arg_buffer_length);
+double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(char* __arg_buffer, double __arg_buffer_length);
 double __EXT_NATIVE__rusty_sdf_rich_create(void);
 double __EXT_NATIVE__rusty_sdf_rich_free(double handle);
 double __EXT_NATIVE__rusty_sdf_rich_set_text(double handle, char* text);
@@ -66,6 +61,7 @@ double __EXT_NATIVE__rusty_sdf_rich_get_images_buffer(double handle, char* buffe
 char* __EXT_NATIVE__rusty_sdf_rich_get_image_name(double handle, double index);
 double __EXT_NATIVE__rusty_sdf_rich_get_glyph_meta_buffer(double handle, char* buffer_ptr, double buffer_len);
 char* __EXT_NATIVE__rusty_sdf_rich_get_plain_text(double handle);
+double __EXT_NATIVE__RustySDF_queue_buffer(char* __arg_buffer, double __arg_buffer_length);
 const char* __EXT_NATIVE__RustySDF_get_last_error(void);
 }
 
@@ -141,9 +137,9 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
     free(classes);
 }
 
-- (double)__EXT_NATIVE__rusty_sdf_load_font:(char*)buffer_ptr arg1:(double)buffer_len
+- (double)__EXT_NATIVE__rusty_sdf_load_font:(char*)__arg_buffer arg1:(double)__arg_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_load_font(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_load_font(__arg_buffer, __arg_buffer_length);
 }
 - (double)__EXT_NATIVE__rusty_sdf_free_font:(double)font_handle
 {
@@ -177,14 +173,6 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
 {
     return __EXT_NATIVE__rusty_sdf_get_shape_glyph_count(shape_handle);
 }
-- (char*)__EXT_NATIVE__rusty_sdf_get_shape_glyph_info:(double)shape_handle arg1:(double)index
-{
-    return __EXT_NATIVE__rusty_sdf_get_shape_glyph_info(shape_handle, index);
-}
-- (char*)__EXT_NATIVE__rusty_sdf_get_shape_glyphs_json:(double)shape_handle
-{
-    return __EXT_NATIVE__rusty_sdf_get_shape_glyphs_json(shape_handle);
-}
 - (double)__EXT_NATIVE__rusty_sdf_get_shape_glyphs_buffer:(double)shape_handle arg1:(char*)buffer_ptr arg2:(double)buffer_len
 {
     return __EXT_NATIVE__rusty_sdf_get_shape_glyphs_buffer(shape_handle, buffer_ptr, buffer_len);
@@ -213,13 +201,9 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
 {
     return __EXT_NATIVE__rusty_sdf_get_buffer_bpp();
 }
-- (char*)__EXT_NATIVE__rusty_sdf_get_glyph_bounds:(double)font_handle arg1:(double)glyph_id arg2:(double)font_size
+- (double)__EXT_NATIVE__rusty_sdf_get_glyph_bounds:(char*)__arg_buffer arg1:(double)__arg_buffer_length arg2:(char*)__ret_buffer arg3:(double)__ret_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_get_glyph_bounds(font_handle, glyph_id, font_size);
-}
-- (double)__EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer:(double)font_handle arg1:(double)glyph_id arg2:(double)font_size arg3:(char*)buffer_ptr
-{
-    return __EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer(font_handle, glyph_id, font_size, buffer_ptr);
+    return __EXT_NATIVE__rusty_sdf_get_glyph_bounds(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
 }
 - (double)__EXT_NATIVE__rusty_sdf_render_glyph:(double)font_handle arg1:(double)glyph_id arg2:(double)font_size
 {
@@ -233,25 +217,21 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
 {
     return __EXT_NATIVE__rusty_sdf_request_glyph(font_handle, glyph_id, font_size, padding, spread, mode);
 }
-- (char*)__EXT_NATIVE__rusty_sdf_poll_glyph
+- (double)__EXT_NATIVE__rusty_sdf_poll_glyph:(char*)__ret_buffer arg1:(double)__ret_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_poll_glyph();
+    return __EXT_NATIVE__rusty_sdf_poll_glyph(__ret_buffer, __ret_buffer_length);
 }
-- (double)__EXT_NATIVE__rusty_sdf_poll_glyph_buffer:(char*)buffer_ptr arg1:(double)buffer_len
+- (double)__EXT_NATIVE__rusty_sdf_poll_glyph_pixels:(char*)__arg_buffer arg1:(double)__arg_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_poll_glyph_buffer(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(__arg_buffer, __arg_buffer_length);
 }
-- (double)__EXT_NATIVE__rusty_sdf_poll_glyph_pixels:(char*)buffer_ptr arg1:(double)buffer_len
+- (double)__EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided:(char*)__arg_buffer arg1:(double)__arg_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(__arg_buffer, __arg_buffer_length);
 }
-- (double)__EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided:(char*)buffer_ptr arg1:(double)buffer_len arg2:(double)stride_w arg3:(double)stride_h
+- (double)__EXT_NATIVE__rusty_sdf_measure_text:(char*)__arg_buffer arg1:(double)__arg_buffer_length arg2:(char*)__ret_buffer arg3:(double)__ret_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(buffer_ptr, buffer_len, stride_w, stride_h);
-}
-- (char*)__EXT_NATIVE__rusty_sdf_measure_text:(double)font_handle arg1:(char*)text arg2:(double)font_size
-{
-    return __EXT_NATIVE__rusty_sdf_measure_text(font_handle, text, font_size);
+    return __EXT_NATIVE__rusty_sdf_measure_text(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
 }
 - (char*)__EXT_NATIVE__rusty_sdf_ping
 {
@@ -285,25 +265,21 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
 {
     return __EXT_NATIVE__rusty_sdf_atlas_ensure_glyph(font_handle, glyph_id, base_size, spread, mode, async_flag);
 }
-- (double)__EXT_NATIVE__rusty_sdf_atlas_prepare_lookup:(double)font_handle arg1:(double)glyph_id arg2:(double)base_size arg3:(double)spread
+- (double)__EXT_NATIVE__rusty_sdf_atlas_lookup:(char*)__arg_buffer arg1:(double)__arg_buffer_length arg2:(char*)__ret_buffer arg3:(double)__ret_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_atlas_prepare_lookup(font_handle, glyph_id, base_size, spread);
-}
-- (double)__EXT_NATIVE__rusty_sdf_atlas_lookup_buffer:(char*)buffer_ptr arg1:(double)buffer_len
-{
-    return __EXT_NATIVE__rusty_sdf_atlas_lookup_buffer(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_atlas_lookup(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
 }
 - (double)__EXT_NATIVE__rusty_sdf_atlas_commit_glyph:(double)font_handle arg1:(double)glyph_id arg2:(double)base_size arg3:(double)spread arg4:(double)width arg5:(double)height arg6:(double)raw_w arg7:(double)raw_h arg8:(double)x_min arg9:(double)y_max
 {
     return __EXT_NATIVE__rusty_sdf_atlas_commit_glyph(font_handle, glyph_id, base_size, spread, width, height, raw_w, raw_h, x_min, y_max);
 }
-- (double)__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta:(char*)buffer_ptr arg1:(double)buffer_len
+- (double)__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta:(char*)__arg_buffer arg1:(double)__arg_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(__arg_buffer, __arg_buffer_length);
 }
-- (double)__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels:(char*)buffer_ptr arg1:(double)buffer_len
+- (double)__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels:(char*)__arg_buffer arg1:(double)__arg_buffer_length
 {
-    return __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr, buffer_len);
+    return __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(__arg_buffer, __arg_buffer_length);
 }
 - (double)__EXT_NATIVE__rusty_sdf_rich_create
 {
@@ -384,6 +360,10 @@ static void GMInjectSelectorsIntoSubclass(Class subclass, Class base)
 - (char*)__EXT_NATIVE__rusty_sdf_rich_get_plain_text:(double)handle
 {
     return __EXT_NATIVE__rusty_sdf_rich_get_plain_text(handle);
+}
+- (double)__EXT_NATIVE__RustySDF_queue_buffer:(char*)__arg_buffer arg1:(double)__arg_buffer_length
+{
+    return __EXT_NATIVE__RustySDF_queue_buffer(__arg_buffer, __arg_buffer_length);
 }
 @end
 

@@ -1,7 +1,7 @@
 module RustySDF;
 
 /// Font load / free / fallback chain.
-function rusty_sdf_load_font(buffer_ptr: pointer, buffer_len: real) : real;
+function rusty_sdf_load_font([type_hint=buffer] data: gmval): real;
 function rusty_sdf_free_font(font_handle: real) : real;
 function rusty_sdf_add_fallback(font_handle: real, fallback_handle: real) : real;
 function rusty_sdf_get_font_glyph_count(font_handle: real) : real;
@@ -12,8 +12,6 @@ function rusty_sdf_free_shape(shape_handle: real) : real;
 function rusty_sdf_get_shape_width(shape_handle: real) : real;
 function rusty_sdf_get_shape_height(shape_handle: real) : real;
 function rusty_sdf_get_shape_glyph_count(shape_handle: real) : real;
-function rusty_sdf_get_shape_glyph_info(shape_handle: real, index: real) : string;
-function rusty_sdf_get_shape_glyphs_json(shape_handle: real) : string;
 function rusty_sdf_get_shape_glyphs_buffer(shape_handle: real, buffer_ptr: pointer, buffer_len: real) : real;
 function rusty_sdf_set_bidi_mode(mode: real) : real;
 
@@ -24,19 +22,17 @@ function rusty_sdf_set_mode(mode: real) : real;
 function rusty_sdf_get_mode() : real;
 function rusty_sdf_get_buffer_bpp() : real;
 
-function rusty_sdf_get_glyph_bounds(font_handle: real, glyph_id: real, font_size: real) : string;
-function rusty_sdf_get_glyph_bounds_buffer(font_handle: real, glyph_id: real, font_size: real, buffer_ptr: pointer) : real;
+function rusty_sdf_get_glyph_bounds(font_handle: real, glyph_id: real, font_size: real): object;
 function rusty_sdf_render_glyph(font_handle: real, glyph_id: real, font_size: real) : real;
 function rusty_sdf_render_char(font_handle: real, char_code: real, font_size: real) : real;
 
-/// Async glyph render queue.
+/// Async glyph render queue (poll in Begin Step — keep GPU upload off Draw).
 function rusty_sdf_request_glyph(font_handle: real, glyph_id: real, font_size: real, padding: real, spread: real, mode: real) : real;
-function rusty_sdf_poll_glyph() : string;
-function rusty_sdf_poll_glyph_buffer(buffer_ptr: pointer, buffer_len: real) : real;
-function rusty_sdf_poll_glyph_pixels(buffer_ptr: pointer, buffer_len: real) : real;
-function rusty_sdf_poll_glyph_pixels_strided(buffer_ptr: pointer, buffer_len: real, stride_w: real, stride_h: real) : real;
+function rusty_sdf_poll_glyph(): object;
+function rusty_sdf_poll_glyph_pixels([type_hint=buffer] dst: gmval): real;
+function rusty_sdf_poll_glyph_pixels_strided([type_hint=buffer] dst: gmval, stride_w: real, stride_h: real): real;
 
-function rusty_sdf_measure_text(font_handle: real, text: string, font_size: real) : string;
+function rusty_sdf_measure_text(font_handle: real, text: string, font_size: real): object;
 function rusty_sdf_ping() : string;
 /// Last native error string (also available as auto RustySDF_get_last_error export).
 function rusty_sdf_get_last_error() : string;
@@ -48,11 +44,10 @@ function rusty_sdf_atlas_clear() : real;
 function rusty_sdf_atlas_get_version() : real;
 function rusty_sdf_atlas_page_count() : real;
 function rusty_sdf_atlas_ensure_glyph(font_handle: real, glyph_id: real, base_size: real, spread: real, mode: real, async_flag: real) : real;
-function rusty_sdf_atlas_prepare_lookup(font_handle: real, glyph_id: real, base_size: real, spread: real) : real;
-function rusty_sdf_atlas_lookup_buffer(buffer_ptr: pointer, buffer_len: real) : real;
+function rusty_sdf_atlas_lookup(font_handle: real, glyph_id: real, base_size: real, spread: real): object;
 function rusty_sdf_atlas_commit_glyph(font_handle: real, glyph_id: real, base_size: real, spread: real, width: real, height: real, raw_w: real, raw_h: real, x_min: real, y_max: real) : real;
-function rusty_sdf_atlas_poll_dirty_meta(buffer_ptr: pointer, buffer_len: real) : real;
-function rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr: pointer, buffer_len: real) : real;
+function rusty_sdf_atlas_poll_dirty_meta([type_hint=buffer] dst: gmval): real;
+function rusty_sdf_atlas_poll_dirty_pixels([type_hint=buffer] dst: gmval): real;
 
 /// Rich text (parse + layout + vertices).
 function rusty_sdf_rich_create() : real;

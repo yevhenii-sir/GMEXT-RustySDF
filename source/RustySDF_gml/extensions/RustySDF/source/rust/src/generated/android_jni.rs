@@ -14,14 +14,24 @@ fn direct_buf_ptr(env: &mut JNIEnv<'_>, buf: JObject<'_>) -> Option<*mut c_char>
     env.get_direct_buffer_address(&bb).ok().map(|p| p as *mut c_char)
 }
 
+extern "system" fn jni_wrap_queue_buffer(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble,
+) -> jdouble {
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    unsafe { ffi::__EXT_NATIVE__RustySDF_queue_buffer(__arg_buffer_ptr, __arg_buffer_length) }
+}
+
 extern "system" fn jni_wrap_rusty_sdf_load_font(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_load_font(buffer_ptr_ptr, buffer_len) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_load_font(__arg_buffer_ptr, __arg_buffer_length) };
     result
 }
 
@@ -102,35 +112,6 @@ extern "system" fn jni_wrap_rusty_sdf_get_shape_glyph_count(
     result
 }
 
-extern "system" fn jni_wrap_rusty_sdf_get_shape_glyph_info(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    shape_handle: jdouble,
-    index: jdouble
-) -> jstring {
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_get_shape_glyph_info(shape_handle, index) };
-    if result.is_null() { return std::ptr::null_mut(); }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(result) };
-    match cstr.to_str() {
-        Ok(s) => env.new_string(s).map(|js| js.into_raw()).unwrap_or(std::ptr::null_mut()),
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
-extern "system" fn jni_wrap_rusty_sdf_get_shape_glyphs_json(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    shape_handle: jdouble
-) -> jstring {
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_get_shape_glyphs_json(shape_handle) };
-    if result.is_null() { return std::ptr::null_mut(); }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(result) };
-    match cstr.to_str() {
-        Ok(s) => env.new_string(s).map(|js| js.into_raw()).unwrap_or(std::ptr::null_mut()),
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
 extern "system" fn jni_wrap_rusty_sdf_get_shape_glyphs_buffer(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
@@ -204,29 +185,14 @@ extern "system" fn jni_wrap_rusty_sdf_get_buffer_bpp(
 extern "system" fn jni_wrap_rusty_sdf_get_glyph_bounds(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    font_handle: jdouble,
-    glyph_id: jdouble,
-    font_size: jdouble
-) -> jstring {
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_get_glyph_bounds(font_handle, glyph_id, font_size) };
-    if result.is_null() { return std::ptr::null_mut(); }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(result) };
-    match cstr.to_str() {
-        Ok(s) => env.new_string(s).map(|js| js.into_raw()).unwrap_or(std::ptr::null_mut()),
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
-extern "system" fn jni_wrap_rusty_sdf_get_glyph_bounds_buffer(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    font_handle: jdouble,
-    glyph_id: jdouble,
-    font_size: jdouble,
-    buffer_ptr: JObject<'_>
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble,
+    __ret_buffer: JObject<'_>,
+    __ret_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer(font_handle, glyph_id, font_size, buffer_ptr_ptr) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let __ret_buffer_ptr = match direct_buf_ptr(&mut env, __ret_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_get_glyph_bounds(__arg_buffer_ptr, __arg_buffer_length, __ret_buffer_ptr, __ret_buffer_length) };
     result
 }
 
@@ -269,68 +235,48 @@ extern "system" fn jni_wrap_rusty_sdf_request_glyph(
 extern "system" fn jni_wrap_rusty_sdf_poll_glyph(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-
-) -> jstring {
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph() };
-    if result.is_null() { return std::ptr::null_mut(); }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(result) };
-    match cstr.to_str() {
-        Ok(s) => env.new_string(s).map(|js| js.into_raw()).unwrap_or(std::ptr::null_mut()),
-        Err(_) => std::ptr::null_mut(),
-    }
-}
-
-extern "system" fn jni_wrap_rusty_sdf_poll_glyph_buffer(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __ret_buffer: JObject<'_>,
+    __ret_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph_buffer(buffer_ptr_ptr, buffer_len) };
+    let __ret_buffer_ptr = match direct_buf_ptr(&mut env, __ret_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph(__ret_buffer_ptr, __ret_buffer_length) };
     result
 }
 
 extern "system" fn jni_wrap_rusty_sdf_poll_glyph_pixels(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph_pixels(buffer_ptr_ptr, buffer_len) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph_pixels(__arg_buffer_ptr, __arg_buffer_length) };
     result
 }
 
 extern "system" fn jni_wrap_rusty_sdf_poll_glyph_pixels_strided(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble,
-    stride_w: jdouble,
-    stride_h: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(buffer_ptr_ptr, buffer_len, stride_w, stride_h) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(__arg_buffer_ptr, __arg_buffer_length) };
     result
 }
 
 extern "system" fn jni_wrap_rusty_sdf_measure_text(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    font_handle: jdouble,
-    text: JString<'_>,
-    font_size: jdouble
-) -> jstring {
-    let text_c = env.get_string(&text).ok();
-    let text_ptr = text_c.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null());
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_measure_text(font_handle, text_ptr, font_size) };
-    if result.is_null() { return std::ptr::null_mut(); }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(result) };
-    match cstr.to_str() {
-        Ok(s) => env.new_string(s).map(|js| js.into_raw()).unwrap_or(std::ptr::null_mut()),
-        Err(_) => std::ptr::null_mut(),
-    }
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble,
+    __ret_buffer: JObject<'_>,
+    __ret_buffer_length: jdouble
+) -> jdouble {
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let __ret_buffer_ptr = match direct_buf_ptr(&mut env, __ret_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_measure_text(__arg_buffer_ptr, __arg_buffer_length, __ret_buffer_ptr, __ret_buffer_length) };
+    result
 }
 
 extern "system" fn jni_wrap_rusty_sdf_ping(
@@ -422,26 +368,17 @@ extern "system" fn jni_wrap_rusty_sdf_atlas_ensure_glyph(
     result
 }
 
-extern "system" fn jni_wrap_rusty_sdf_atlas_prepare_lookup(
-    _env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    font_handle: jdouble,
-    glyph_id: jdouble,
-    base_size: jdouble,
-    spread: jdouble
-) -> jdouble {
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_prepare_lookup(font_handle, glyph_id, base_size, spread) };
-    result
-}
-
-extern "system" fn jni_wrap_rusty_sdf_atlas_lookup_buffer(
+extern "system" fn jni_wrap_rusty_sdf_atlas_lookup(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble,
+    __ret_buffer: JObject<'_>,
+    __ret_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_lookup_buffer(buffer_ptr_ptr, buffer_len) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let __ret_buffer_ptr = match direct_buf_ptr(&mut env, __ret_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_lookup(__arg_buffer_ptr, __arg_buffer_length, __ret_buffer_ptr, __ret_buffer_length) };
     result
 }
 
@@ -466,22 +403,22 @@ extern "system" fn jni_wrap_rusty_sdf_atlas_commit_glyph(
 extern "system" fn jni_wrap_rusty_sdf_atlas_poll_dirty_meta(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(buffer_ptr_ptr, buffer_len) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(__arg_buffer_ptr, __arg_buffer_length) };
     result
 }
 
 extern "system" fn jni_wrap_rusty_sdf_atlas_poll_dirty_pixels(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
-    buffer_ptr: JObject<'_>,
-    buffer_len: jdouble
+    __arg_buffer: JObject<'_>,
+    __arg_buffer_length: jdouble
 ) -> jdouble {
-    let buffer_ptr_ptr = match direct_buf_ptr(&mut env, buffer_ptr) { Some(p) => p, None => return -1.0 };
-    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr_ptr, buffer_len) };
+    let __arg_buffer_ptr = match direct_buf_ptr(&mut env, __arg_buffer) { Some(p) => p, None => return -1.0 };
+    let result = unsafe { ffi::__EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(__arg_buffer_ptr, __arg_buffer_length) };
     result
 }
 
@@ -720,6 +657,7 @@ extern "system" fn jni_wrap_rusty_sdf_rich_get_plain_text(
 #[no_mangle]
 pub extern "system" fn Java_com_gamemaker_ExtensionCore_ExtBridge_RustySDFBridge_nativeRegister(mut env: JNIEnv<'_>, class: JClass<'_>) {
     let methods = [
+        NativeMethod { name: "__EXT_JNI__RustySDF_queue_buffer".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_queue_buffer as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_load_font".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_load_font as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_free_font".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_free_font as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_add_fallback".into(), sig: "(DD)D".into(), fn_ptr: jni_wrap_rusty_sdf_add_fallback as *mut c_void },
@@ -729,8 +667,6 @@ pub extern "system" fn Java_com_gamemaker_ExtensionCore_ExtBridge_RustySDFBridge
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_width".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_width as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_height".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_height as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_glyph_count".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_glyph_count as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_glyph_info".into(), sig: "(DD)Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_glyph_info as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_glyphs_json".into(), sig: "(D)Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_glyphs_json as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_shape_glyphs_buffer".into(), sig: "(DLjava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_shape_glyphs_buffer as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_set_bidi_mode".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_set_bidi_mode as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_set_buffer".into(), sig: "(Ljava/nio/ByteBuffer;DD)D".into(), fn_ptr: jni_wrap_rusty_sdf_set_buffer as *mut c_void },
@@ -738,16 +674,14 @@ pub extern "system" fn Java_com_gamemaker_ExtensionCore_ExtBridge_RustySDFBridge
         NativeMethod { name: "__EXT_JNI__rusty_sdf_set_mode".into(), sig: "(D)D".into(), fn_ptr: jni_wrap_rusty_sdf_set_mode as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_mode".into(), sig: "()D".into(), fn_ptr: jni_wrap_rusty_sdf_get_mode as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_buffer_bpp".into(), sig: "()D".into(), fn_ptr: jni_wrap_rusty_sdf_get_buffer_bpp as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_get_glyph_bounds".into(), sig: "(DDD)Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_get_glyph_bounds as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_get_glyph_bounds_buffer".into(), sig: "(DDDLjava/nio/ByteBuffer;)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_glyph_bounds_buffer as *mut c_void },
+        NativeMethod { name: "__EXT_JNI__rusty_sdf_get_glyph_bounds".into(), sig: "(Ljava/nio/ByteBuffer;DLjava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_get_glyph_bounds as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_render_glyph".into(), sig: "(DDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_render_glyph as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_render_char".into(), sig: "(DDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_render_char as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_request_glyph".into(), sig: "(DDDDDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_request_glyph as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph".into(), sig: "()Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph_buffer".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph_buffer as *mut c_void },
+        NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph_pixels".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph_pixels as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph_pixels_strided".into(), sig: "(Ljava/nio/ByteBuffer;DDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph_pixels_strided as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_measure_text".into(), sig: "(DLjava/lang/String;D)Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_measure_text as *mut c_void },
+        NativeMethod { name: "__EXT_JNI__rusty_sdf_poll_glyph_pixels_strided".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_poll_glyph_pixels_strided as *mut c_void },
+        NativeMethod { name: "__EXT_JNI__rusty_sdf_measure_text".into(), sig: "(Ljava/nio/ByteBuffer;DLjava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_measure_text as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_ping".into(), sig: "()Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_ping as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_get_last_error".into(), sig: "()Ljava/lang/String;".into(), fn_ptr: jni_wrap_rusty_sdf_get_last_error as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_init".into(), sig: "(DDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_init as *mut c_void },
@@ -756,8 +690,7 @@ pub extern "system" fn Java_com_gamemaker_ExtensionCore_ExtBridge_RustySDFBridge
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_get_version".into(), sig: "()D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_get_version as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_page_count".into(), sig: "()D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_page_count as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_ensure_glyph".into(), sig: "(DDDDDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_ensure_glyph as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_prepare_lookup".into(), sig: "(DDDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_prepare_lookup as *mut c_void },
-        NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_lookup_buffer".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_lookup_buffer as *mut c_void },
+        NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_lookup".into(), sig: "(Ljava/nio/ByteBuffer;DLjava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_lookup as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_commit_glyph".into(), sig: "(DDDDDDDDDD)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_commit_glyph as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_poll_dirty_meta".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_poll_dirty_meta as *mut c_void },
         NativeMethod { name: "__EXT_JNI__rusty_sdf_atlas_poll_dirty_pixels".into(), sig: "(Ljava/nio/ByteBuffer;D)D".into(), fn_ptr: jni_wrap_rusty_sdf_atlas_poll_dirty_pixels as *mut c_void },

@@ -4,9 +4,13 @@ import java.lang.String;
 import java.nio.ByteBuffer;
 
 public class RustySDFInternal extends RunnerSocial {
-    public double __EXT_NATIVE__rusty_sdf_load_font(ByteBuffer buffer_ptr, double buffer_len)
+    public double __EXT_NATIVE__RustySDF_queue_buffer(ByteBuffer __arg_buffer, double __arg_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_load_font(buffer_ptr, buffer_len);
+        return __EXT_JNI__RustySDF_queue_buffer(__arg_buffer, __arg_buffer_length);
+    }
+    public double __EXT_NATIVE__rusty_sdf_load_font(ByteBuffer __arg_buffer, double __arg_buffer_length)
+    {
+        return __EXT_JNI__rusty_sdf_load_font(__arg_buffer, __arg_buffer_length);
     }
     public double __EXT_NATIVE__rusty_sdf_free_font(double font_handle)
     {
@@ -40,14 +44,6 @@ public class RustySDFInternal extends RunnerSocial {
     {
         return __EXT_JNI__rusty_sdf_get_shape_glyph_count(shape_handle);
     }
-    public String __EXT_NATIVE__rusty_sdf_get_shape_glyph_info(double shape_handle, double index)
-    {
-        return __EXT_JNI__rusty_sdf_get_shape_glyph_info(shape_handle, index);
-    }
-    public String __EXT_NATIVE__rusty_sdf_get_shape_glyphs_json(double shape_handle)
-    {
-        return __EXT_JNI__rusty_sdf_get_shape_glyphs_json(shape_handle);
-    }
     public double __EXT_NATIVE__rusty_sdf_get_shape_glyphs_buffer(double shape_handle, ByteBuffer buffer_ptr, double buffer_len)
     {
         return __EXT_JNI__rusty_sdf_get_shape_glyphs_buffer(shape_handle, buffer_ptr, buffer_len);
@@ -76,13 +72,9 @@ public class RustySDFInternal extends RunnerSocial {
     {
         return __EXT_JNI__rusty_sdf_get_buffer_bpp();
     }
-    public String __EXT_NATIVE__rusty_sdf_get_glyph_bounds(double font_handle, double glyph_id, double font_size)
+    public double __EXT_NATIVE__rusty_sdf_get_glyph_bounds(ByteBuffer __arg_buffer, double __arg_buffer_length, ByteBuffer __ret_buffer, double __ret_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_get_glyph_bounds(font_handle, glyph_id, font_size);
-    }
-    public double __EXT_NATIVE__rusty_sdf_get_glyph_bounds_buffer(double font_handle, double glyph_id, double font_size, ByteBuffer buffer_ptr)
-    {
-        return __EXT_JNI__rusty_sdf_get_glyph_bounds_buffer(font_handle, glyph_id, font_size, buffer_ptr);
+        return __EXT_JNI__rusty_sdf_get_glyph_bounds(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
     }
     public double __EXT_NATIVE__rusty_sdf_render_glyph(double font_handle, double glyph_id, double font_size)
     {
@@ -96,25 +88,21 @@ public class RustySDFInternal extends RunnerSocial {
     {
         return __EXT_JNI__rusty_sdf_request_glyph(font_handle, glyph_id, font_size, padding, spread, mode);
     }
-    public String __EXT_NATIVE__rusty_sdf_poll_glyph()
+    public double __EXT_NATIVE__rusty_sdf_poll_glyph(ByteBuffer __ret_buffer, double __ret_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_poll_glyph();
+        return __EXT_JNI__rusty_sdf_poll_glyph(__ret_buffer, __ret_buffer_length);
     }
-    public double __EXT_NATIVE__rusty_sdf_poll_glyph_buffer(ByteBuffer buffer_ptr, double buffer_len)
+    public double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(ByteBuffer __arg_buffer, double __arg_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_poll_glyph_buffer(buffer_ptr, buffer_len);
+        return __EXT_JNI__rusty_sdf_poll_glyph_pixels(__arg_buffer, __arg_buffer_length);
     }
-    public double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels(ByteBuffer buffer_ptr, double buffer_len)
+    public double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(ByteBuffer __arg_buffer, double __arg_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_poll_glyph_pixels(buffer_ptr, buffer_len);
+        return __EXT_JNI__rusty_sdf_poll_glyph_pixels_strided(__arg_buffer, __arg_buffer_length);
     }
-    public double __EXT_NATIVE__rusty_sdf_poll_glyph_pixels_strided(ByteBuffer buffer_ptr, double buffer_len, double stride_w, double stride_h)
+    public double __EXT_NATIVE__rusty_sdf_measure_text(ByteBuffer __arg_buffer, double __arg_buffer_length, ByteBuffer __ret_buffer, double __ret_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_poll_glyph_pixels_strided(buffer_ptr, buffer_len, stride_w, stride_h);
-    }
-    public String __EXT_NATIVE__rusty_sdf_measure_text(double font_handle, String text, double font_size)
-    {
-        return __EXT_JNI__rusty_sdf_measure_text(font_handle, text, font_size);
+        return __EXT_JNI__rusty_sdf_measure_text(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
     }
     public String __EXT_NATIVE__rusty_sdf_ping()
     {
@@ -148,25 +136,21 @@ public class RustySDFInternal extends RunnerSocial {
     {
         return __EXT_JNI__rusty_sdf_atlas_ensure_glyph(font_handle, glyph_id, base_size, spread, mode, async_flag);
     }
-    public double __EXT_NATIVE__rusty_sdf_atlas_prepare_lookup(double font_handle, double glyph_id, double base_size, double spread)
+    public double __EXT_NATIVE__rusty_sdf_atlas_lookup(ByteBuffer __arg_buffer, double __arg_buffer_length, ByteBuffer __ret_buffer, double __ret_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_atlas_prepare_lookup(font_handle, glyph_id, base_size, spread);
-    }
-    public double __EXT_NATIVE__rusty_sdf_atlas_lookup_buffer(ByteBuffer buffer_ptr, double buffer_len)
-    {
-        return __EXT_JNI__rusty_sdf_atlas_lookup_buffer(buffer_ptr, buffer_len);
+        return __EXT_JNI__rusty_sdf_atlas_lookup(__arg_buffer, __arg_buffer_length, __ret_buffer, __ret_buffer_length);
     }
     public double __EXT_NATIVE__rusty_sdf_atlas_commit_glyph(double font_handle, double glyph_id, double base_size, double spread, double width, double height, double raw_w, double raw_h, double x_min, double y_max)
     {
         return __EXT_JNI__rusty_sdf_atlas_commit_glyph(font_handle, glyph_id, base_size, spread, width, height, raw_w, raw_h, x_min, y_max);
     }
-    public double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(ByteBuffer buffer_ptr, double buffer_len)
+    public double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_meta(ByteBuffer __arg_buffer, double __arg_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_atlas_poll_dirty_meta(buffer_ptr, buffer_len);
+        return __EXT_JNI__rusty_sdf_atlas_poll_dirty_meta(__arg_buffer, __arg_buffer_length);
     }
-    public double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(ByteBuffer buffer_ptr, double buffer_len)
+    public double __EXT_NATIVE__rusty_sdf_atlas_poll_dirty_pixels(ByteBuffer __arg_buffer, double __arg_buffer_length)
     {
-        return __EXT_JNI__rusty_sdf_atlas_poll_dirty_pixels(buffer_ptr, buffer_len);
+        return __EXT_JNI__rusty_sdf_atlas_poll_dirty_pixels(__arg_buffer, __arg_buffer_length);
     }
     public double __EXT_NATIVE__rusty_sdf_rich_create()
     {

@@ -110,7 +110,9 @@ function RustySDF_GetFont(font_path, fallback_handle_id = -1) {
     }
 
     var bufferPtr = buffer_get_address(buf);
-    var handle = rusty_sdf_load_font(bufferPtr, buffer_get_size(buf));
+    __RustySDF_queue_buffer(bufferPtr, buffer_get_size(buf));
+    var __args_buffer = __ext_core_get_args_buffer();
+    var handle = __rusty_sdf_load_font(buffer_get_address(__args_buffer), buffer_tell(__args_buffer));
 
     if (handle < 0) {
         show_debug_message("RustySDF: Failed to load font: " + rusty_sdf_get_last_error());
@@ -232,17 +234,19 @@ function RustySDF_GetMode() { return rusty_sdf_get_mode(); }
 function RustySDF_GetBufferBPP() { return 4; }
 
 function RustySDF_GetGlyphBounds(font_handle, glyph_id, font_size) {
-    static _buf = buffer_create(64, buffer_fixed, 1);
-    var written = rusty_sdf_get_glyph_bounds_buffer(font_handle, glyph_id, font_size, buffer_get_address(_buf));
-    if (written <= 0) return undefined;
-
-    buffer_seek(_buf, buffer_seek_start, 0);
-    var flat = __ext_core_buffer_unmarshal_value(_buf, []);
-
-    if (!is_array(flat) || array_length(flat) < 4) {
-        return undefined;
-    }
-    return { width: flat[0], height: flat[1], x_min: flat[2], y_max: flat[3] };
+    var __args_buffer = __ext_core_get_args_buffer();
+    buffer_write(__args_buffer, buffer_f64, font_handle);
+    buffer_write(__args_buffer, buffer_f64, glyph_id);
+    buffer_write(__args_buffer, buffer_f64, font_size);
+    var __ret_buffer = __ext_core_get_ret_buffer();
+    __rusty_sdf_get_glyph_bounds(
+        buffer_get_address(__args_buffer), buffer_tell(__args_buffer),
+        buffer_get_address(__ret_buffer), buffer_get_size(__ret_buffer)
+    );
+    buffer_seek(__ret_buffer, buffer_seek_start, 0);
+    var info = __ext_core_buffer_unmarshal_value(__ret_buffer, []);
+    if (!is_struct(info) || !variable_struct_exists(info, "width")) return undefined;
+    return info;
 }
 
 function RustySDF_SetBuffer(surface) {
@@ -262,9 +266,20 @@ function RustySDF_RenderGlyph(font_handle, glyph_id, font_size) { return rusty_s
 function RustySDF_RenderChar(font_handle, char_code, font_size) { return rusty_sdf_render_char(font_handle, char_code, font_size); }
 
 function RustySDF_MeasureText(font_handle, text, font_size) {
-    var json_str = rusty_sdf_measure_text(font_handle, text, font_size);
-    if (!is_string(json_str) || json_str == "") return undefined;
-    return json_parse(json_str);
+    var __args_buffer = __ext_core_get_args_buffer();
+    buffer_write(__args_buffer, buffer_f64, font_handle);
+    buffer_write(__args_buffer, buffer_u32, string_byte_length(text));
+    buffer_write(__args_buffer, buffer_string, text);
+    buffer_write(__args_buffer, buffer_f64, font_size);
+    var __ret_buffer = __ext_core_get_ret_buffer();
+    __rusty_sdf_measure_text(
+        buffer_get_address(__args_buffer), buffer_tell(__args_buffer),
+        buffer_get_address(__ret_buffer), buffer_get_size(__ret_buffer)
+    );
+    buffer_seek(__ret_buffer, buffer_seek_start, 0);
+    var info = __ext_core_buffer_unmarshal_value(__ret_buffer, []);
+    if (!is_struct(info) || !variable_struct_exists(info, "width")) return undefined;
+    return info;
 }
 
 function RustySDF_GetLastError() { return rusty_sdf_get_last_error(); }
@@ -277,37 +292,31 @@ function RustySDF_RequestGlyph(font_handle, glyph_id, font_size, padding, spread
 }
 
 function RustySDF_PollGlyph() {
-    var buf = global.rusty_sdf_poll_buf;
-
-    var written = rusty_sdf_poll_glyph_buffer(buffer_get_address(buf), 128);
-    if (written <= 0) return undefined;
-
-    buffer_seek(buf, buffer_seek_start, 0);
-    var flat = __ext_core_buffer_unmarshal_value(buf, []);
-
-    if (!is_array(flat) || array_length(flat) < 11) return undefined;
-    return {
-        font_handle: flat[0], glyph_id: flat[1], font_size: flat[2],
-        padding: flat[3], spread: flat[4],
-        width: flat[5], height: flat[6],
-        raw_w: flat[7], raw_h: flat[8],
-        x_min: flat[9], y_max: flat[10]
-    };
+    var __ret_buffer = __ext_core_get_ret_buffer();
+    __rusty_sdf_poll_glyph(buffer_get_address(__ret_buffer), buffer_get_size(__ret_buffer));
+    buffer_seek(__ret_buffer, buffer_seek_start, 0);
+    var info = __ext_core_buffer_unmarshal_value(__ret_buffer, []);
+    if (!is_struct(info) || !variable_struct_exists(info, "glyph_id")) return undefined;
+    return info;
 }
 function RustySDF_PollGlyphPixels(buffer) {
     if (!buffer_exists(buffer)) return -1;
-    return rusty_sdf_poll_glyph_pixels(buffer_get_address(buffer), buffer_get_size(buffer));
+    __RustySDF_queue_buffer(buffer_get_address(buffer), buffer_get_size(buffer));
+    var __args_buffer = __ext_core_get_args_buffer();
+    return __rusty_sdf_poll_glyph_pixels(buffer_get_address(__args_buffer), buffer_tell(__args_buffer));
 }
 
 /// @func RustySDF_PollGlyphPixelsStrided(buffer, stride_w, stride_h)
 /// @desc Writes last polled glyph into buffer with row stride (for fixed upload scratch).
 function RustySDF_PollGlyphPixelsStrided(buffer, stride_w, stride_h) {
     if (!buffer_exists(buffer)) return -1;
-    return rusty_sdf_poll_glyph_pixels_strided(
-        buffer_get_address(buffer),
-        buffer_get_size(buffer),
-        stride_w,
-        stride_h
+    __RustySDF_queue_buffer(buffer_get_address(buffer), buffer_get_size(buffer));
+    var __args_buffer = __ext_core_get_args_buffer();
+    buffer_write(__args_buffer, buffer_f64, stride_w);
+    buffer_write(__args_buffer, buffer_f64, stride_h);
+    return __rusty_sdf_poll_glyph_pixels_strided(
+        buffer_get_address(__args_buffer),
+        buffer_tell(__args_buffer)
     );
 }
 
